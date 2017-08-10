@@ -12,7 +12,7 @@ parser.add_argument('-is_train', '--is_train', type=str2bool, default=True,
                     help='if train or test')
 parser.add_argument('-is_diff', '--is_diff', type=str2bool, default=False,
                     help='decide if raw weight or weight difference')
-parser.add_argument('-is_viz', '--is_viz', type=str2bool, default=False,
+parser.add_argument('-is_weights', '--is_weights', type=str2bool, default=True,
                     help='true to turn on the visual block')
 parser.add_argument('-init_std', '--init_std', type=float, default=1e-1,
                     help='specify the init std for the training')
@@ -22,7 +22,7 @@ parser.add_argument('-p_accu', '--p_accu', type=int, default=5,
                     help='specify for every how many steps print the accuracy')
 parser.add_argument('-pa', '--patience', type=int, default=1250,  # 50 epochs
                     help='specify the patience which is used in early stop')
-parser.add_argument('-epochs', '--epochs', type=int, default=3,
+parser.add_argument('-epochs', '--epochs', type=int, default=50,
                     help='specify the total # of epochs for the training')
 parser.add_argument('-lr', '--lr', type=float, default=1e-3,
                     help='specify the learning rate for the training')
@@ -56,8 +56,10 @@ parser.add_argument('-gpus', '--gpus', type=str, default='7',
                     help='specify which GPU to use')
 parser.add_argument('-rs', '--rs', type=int, default=42,
                     help='specify the random seed for the training')
-parser.add_argument('-nviz', '--num_to_viz', type=int, default=5,
+parser.add_argument('-nviz', '--num_to_viz', type=int, default=3,
                     help='specify the # of images to viz')
+parser.add_argument('-spath', '--spath', type=str, default='summary',
+                    help='specify the summary path')
 
 def get_config():
     config, unparsed = parser.parse_known_args()

@@ -1,29 +1,33 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow as tf
 import os
 
 
 def normalize_contrast(matrix):
-    shifted = matrix - matrix.min()
-    return (shifted / np.ptp(shifted) * 255).astype(np.uint8)
+    # each row of matrix is an image
+    shifted = tf.subtract(matrix, tf.reduce_min(matrix, axis=1, keep_dims=True))
+    normalized = tf.divide(shifted, tf.reduce_max(shifted, axis=1, keep_dims=True)) * 255.
+    return normalized
+
 
 
 def prep_dirs(FLAGS):
     # image dataset path
-    data_path = os.path.join("../data", FLAGS.dataset)
+    data_path = os.path.join("./../../data", FLAGS.dataset)
 
     # summary path and name
-    summary_path = os.path.join("summaries", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
+    summary_path = os.path.join("./../../summaries", FLAGS.spath, "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
                                 format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
                                        FLAGS.lr, FLAGS.init_std, FLAGS.dataset))
 
     # always save the training log
-    log_dir = os.path.join("logs", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
+    log_dir = os.path.join("./../../logs", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
                            format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
                                   FLAGS.lr, FLAGS.init_std, FLAGS.dataset))
 
     # always save the trained model
-    model_path = os.path.join("saved_models", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
+    model_path = os.path.join("./../../saved_models", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
                               format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
                                      FLAGS.lr, FLAGS.init_std, FLAGS.dataset))
 
@@ -31,6 +35,9 @@ def prep_dirs(FLAGS):
         os.makedirs(model_path)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
+    if not os.path.exists(summary_path):
+        os.makedirs(summary_path)
+
 
     return data_path, log_dir, model_path, summary_path
 
