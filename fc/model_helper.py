@@ -29,7 +29,7 @@ def entropy_loss(logits, labels, name='Entropy_loss'):
         cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits, name='cross_entropy')
         loss = tf.reduce_mean(cross_entropy, name='entropy_mean')
 
-        tf.summary.scalar('train/loss', loss)
+        tf.summary.scalar('loss', loss)
 
     return loss
 
@@ -52,7 +52,7 @@ def eval_accuracy(logits, labels, name='Eval_accu'):
         predict = tf.argmax(logits, axis=1)
         correct = tf.argmax(labels, axis=1)
         accu = tf.reduce_mean(tf.to_float(tf.equal(correct, predict)))
-        tf.summary.scalar('accu/accu', accu)
+        tf.summary.scalar('accu', accu)
 
     return accu
 
