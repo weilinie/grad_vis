@@ -1,9 +1,11 @@
 import tensorflow as tf
-
+from utils import normalize_contrast
 
 def forwardprop(X, w_vars, b_vars, activation, name='Forwardprop'):
     with tf.name_scope(name):
+
         num_layers = len(w_vars) - 1
+
         h_before = tf.matmul(X, w_vars[0]) + b_vars[0]
         h = activation(h_before)
 
@@ -176,21 +178,81 @@ def eval_diff(X, y, w_vars, w_vars_init, b_vars, b_vars_zero, activation, name='
             tf.summary.scalar('accu/diff_accu_exsoft', diff_exsoft_accuracy)
 
 
-def saliency_map(sess, logits, X, images, num_to_viz=5):
+def saliency_map_logits(sess, logits, X, images, num_to_viz=5):
+
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
     # 2. logits: the tensor we need for further evaluation operations
     # 3. images_placeholder: the slot where we can feed in the viz set
     # 4. images: to viz set
+    # the saliency map is calculated based on logits
 
     max_logits = tf.reduce_max(logits, axis=1)
     saliencies = tf.gradients(max_logits, X)
 
     saliency_maps = tf.reshape(saliencies, [-1, 64, 64, 3])
-    summary_Op = tf.summary.image('Saliency', saliency_maps, max_outputs=num_to_viz)
+    saliency_maps_abs = tf.abs(saliency_maps)
 
-    return sess.run(summary_Op, feed_dict={X: images})
+    summary_Op1 = tf.summary.image('Saliency_logits', saliency_maps, max_outputs=num_to_viz)
+    summary_Op2 = tf.summary.image('Saliency_logits_abs', saliency_maps_abs, max_outputs=num_to_viz)
+
+    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images})
+
+def saliency_map_lgsoft(sess, logits, X, images, num_to_viz=5):
+
+    # this is an evaluation block
+    # we pass in
+    # 1. sess: the model with trained weights
+    # 2. logits: the tensor we need for further evaluation operations
+    # 3. images_placeholder: the slot where we can feed in the viz set
+    # 4. images: to viz set
+    # the saliency map is calculated based on softmax
+
+    max_soft = tf.reduce_max(tf.nn.softmax(logits), axis=1)
+    saliencies = tf.gradients(tf.log(max_soft), X)
+
+    saliency_maps = tf.reshape(saliencies, [-1, 64, 64, 3])
+    saliency_maps_abs = tf.abs(saliency_maps)
+
+    summary_Op1 = tf.summary.image('Saliency_lgsoft', saliency_maps, max_outputs=num_to_viz)
+    summary_Op2 = tf.summary.image('Saliency_lgsoft_abs', saliency_maps_abs, max_outputs=num_to_viz)
+
+    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images})
+
+def viz_weights(sess, X, w_vars, h_vars, images, num_to_viz=5):
+
+    # this is an evaluation block
+    # no matter how many layers we have, we will always multi them together and viz
+    # the num of viz pictures equal to the number of classes
+
+    multi = w_vars[0]
+    multi_results = [multi]
+    for i in range(len(w_vars) - 1):
+        multi = tf.matmul(multi, w_vars[i+1])
+        multi_results += [multi]
+
+    summary_Ops = []
+    for i in range(len(multi_results)):
+        trans = tf.transpose(multi_results[i])
+        pics = tf.reshape(trans, [-1, 64, 64, 3])
+        summary_Ops += [tf.summary.image('multi_weights_upto_layer_{}'.format(i), pics, max_outputs=num_to_viz)]
+
+    ###################################################################################################################
+
+    # weights multi with masking matrices in between
+
+    for i in range(num_to_viz): # loop the viz set, for each input image
+        result = w_vars[0]
+        for j in range(len(w_vars) - 1): # loop the layers, for each layer
+            masking = tf.diag(tf.sign(h_vars[j][i]))
+            temp = tf.matmul(result, masking)
+            result = tf.matmul(temp, w_vars[j+1])
+        trans = tf.transpose(result)
+        pics = tf.reshape(trans, [-1, 64, 64, 3])
+        summary_Ops += [tf.summary.image('viz_{}_maksing_multi'.format(i), pics)]
+
+    return sess.run(tf.summary.merge(summary_Ops), feed_dict={X: images})
 
 
 def input_viz(sess, X, images, num_to_viz=5):

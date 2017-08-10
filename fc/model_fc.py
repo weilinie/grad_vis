@@ -20,7 +20,7 @@ class FC_model(object):
         self.pb = config.pb
         self.opt_type = config.opt_type
 
-        self.is_viz = config.is_viz
+        self.is_weights = config.is_weights
         self.is_diff = config.is_diff
         self.batch_size = config.batch_size
         self.epochs = config.epochs
@@ -50,7 +50,7 @@ class FC_model(object):
                               self.init_std, self.pb)
 
         # Forward propagation
-        self.logits, h_vars, h_before_vars = forwardprop(self.imgs, self.w_vars, self.b_vars, activation)
+        self.logits, self.h_vars, h_before_vars = forwardprop(self.imgs, self.w_vars, self.b_vars, activation)
 
         # Loss
         self.loss = entropy_loss(self.logits, self.labels)
@@ -124,8 +124,17 @@ class FC_model(object):
 
             # saliency map
             if self.is_saliency:
+                # viz inputs
                 train_writer.add_summary(input_viz(sess, self.imgs, train_X_to_viz, self.num_to_viz))
-                train_writer.add_summary(saliency_map(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
+                # viz saliency map calculated based on logits
+                train_writer.add_summary(saliency_map_logits(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
+                # viz saliency map calculated based on log(softmax)
+                train_writer.add_summary(saliency_map_lgsoft(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
+
+            if self.is_weights:
+                # viz weights
+                train_writer.add_summary(viz_weights(sess, self.imgs, self.w_vars, self.h_vars, train_X_to_viz, self.num_to_viz))
+
 
             # save model
             save_path = saver.save(sess, os.path.join(model_path, "model.ckpt"), global_step=step)
