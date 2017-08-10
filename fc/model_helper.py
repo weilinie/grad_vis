@@ -236,7 +236,8 @@ def viz_weights(sess, X, w_vars, h_vars, images, num_to_viz=5):
     for i in range(len(multi_results)):
         trans = tf.transpose(multi_results[i])
         pics = tf.reshape(trans, [-1, 64, 64, 3])
-        summary_Ops += [tf.summary.image('multi_weights_upto_layer{}(selected)'.format(i), pics, max_outputs=num_to_viz)]
+        summary_Ops += [tf.summary.image('selected{}_multi_weights_upto_layer{}'.
+                                         format(num_to_viz, i), pics, max_outputs=num_to_viz)]
 
     ###################################################################################################################
 
