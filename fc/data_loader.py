@@ -16,7 +16,23 @@ def from_one_hot(one_hot):
     return np.argmax(one_hot, axis=1)
 
 
-def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1):
+def preprocessing(X, is_perm=True, is_randsamp=True, p=0.6):
+
+    # use permutation
+    if is_perm:
+        perm_mat = np.random.permutation(np.identity(X.shape[1]))
+        X = np.matmul(X, perm_mat)
+
+    # use random sampling
+    elif is_randsamp:
+        randsamp_vec = np.array([1 if i < int(X.shape[1]*p) else 0] for i in range(X.shape[1]))
+        np.random.shuffle(randsamp_vec)
+        randsamp_mat = np.diag(randsamp_vec)
+        X = np.matmul(X, randsamp_mat)
+
+    return X
+
+def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1, is_perm=True, is_randsamp=False, p=0.6):
     """ Read the data set and split them into training and test sets """
     X = []
     Label = []
@@ -27,6 +43,7 @@ def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1):
         Label.append(int(os.path.basename(image_path).split("_")[0]))
         image = X.append(misc.imread(image_path, mode=image_mode).flatten())
     X = (np.array(X) / 255.).astype(np.float32)
+    X = preprocessing(X, is_perm, is_randsamp, p)
     Label = np.array(Label)
     fns = np.array(fns)
 
