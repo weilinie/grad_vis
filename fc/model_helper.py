@@ -29,7 +29,7 @@ def entropy_loss(logits, labels, name='Entropy_loss'):
         cross_entropy = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits, name='cross_entropy')
         loss = tf.reduce_mean(cross_entropy, name='entropy_mean')
 
-        tf.summary.scalar('train/loss', loss)
+        tf.summary.scalar('loss', loss)
 
     return loss
 
@@ -52,7 +52,7 @@ def eval_accuracy(logits, labels, name='Eval_accu'):
         predict = tf.argmax(logits, axis=1)
         correct = tf.argmax(labels, axis=1)
         accu = tf.reduce_mean(tf.to_float(tf.equal(correct, predict)))
-        tf.summary.scalar('accu/accu', accu)
+        tf.summary.scalar('accu', accu)
 
     return accu
 
@@ -236,7 +236,8 @@ def viz_weights(sess, X, w_vars, h_vars, images, num_to_viz=5):
     for i in range(len(multi_results)):
         trans = tf.transpose(multi_results[i])
         pics = tf.reshape(trans, [-1, 64, 64, 3])
-        summary_Ops += [tf.summary.image('multi_weights_upto_layer_{}'.format(i), pics, max_outputs=num_to_viz)]
+        summary_Ops += [tf.summary.image('selected{}_multi_weights_upto_layer{}'.
+                                         format(num_to_viz, i), pics, max_outputs=num_to_viz)]
 
     ###################################################################################################################
 
@@ -250,7 +251,7 @@ def viz_weights(sess, X, w_vars, h_vars, images, num_to_viz=5):
             result = tf.matmul(temp, w_vars[j+1])
         trans = tf.transpose(result)
         pics = tf.reshape(trans, [-1, 64, 64, 3])
-        summary_Ops += [tf.summary.image('viz_{}_maksing_multi'.format(i), pics)]
+        summary_Ops += [tf.summary.image('viz_img{}_masking_multi'.format(i), pics)]
 
     return sess.run(tf.summary.merge(summary_Ops), feed_dict={X: images})
 

@@ -11,25 +11,24 @@ def normalize_contrast(matrix):
     return normalized
 
 
-
 def prep_dirs(FLAGS):
     # image dataset path
-    data_path = os.path.join("./../../data", FLAGS.dataset)
+    data_path = os.path.join("../data", FLAGS.dataset)
 
     # summary path and name
-    summary_path = os.path.join("./../../summaries", FLAGS.spath, "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
+    summary_path = os.path.join("../summaries", FLAGS.spath, "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}__{}".
                                 format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
-                                       FLAGS.lr, FLAGS.init_std, FLAGS.dataset))
+                                       FLAGS.lr, FLAGS.init_std, FLAGS.rs, FLAGS.dataset))
 
     # always save the training log
-    log_dir = os.path.join("./../../logs", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
+    log_dir = os.path.join("../logs", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}__{}".
                            format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
-                                  FLAGS.lr, FLAGS.init_std, FLAGS.dataset))
+                                  FLAGS.lr, FLAGS.init_std, FLAGS.rs, FLAGS.dataset))
 
     # always save the trained model
-    model_path = os.path.join("./../../saved_models", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}__{}".
+    model_path = os.path.join("../saved_models", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}__{}".
                               format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
-                                     FLAGS.lr, FLAGS.init_std, FLAGS.dataset))
+                                     FLAGS.lr, FLAGS.init_std, FLAGS.rs, FLAGS.dataset))
 
     if not os.path.exists(model_path):
         os.makedirs(model_path)
