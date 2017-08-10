@@ -135,7 +135,6 @@ class FC_model(object):
                 # viz weights
                 train_writer.add_summary(viz_weights(sess, self.imgs, self.w_vars, self.h_vars, train_X_to_viz, self.num_to_viz))
 
-
             # save model
             save_path = saver.save(sess, os.path.join(model_path, "model.ckpt"), global_step=step)
             print("Model saved in file: %s" % save_path)
