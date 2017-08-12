@@ -50,6 +50,12 @@ parser.add_argument('-indim', '--input_dim', type=int, default=64,
                     help='specify the dimension of input image')
 parser.add_argument('-outdim', '--output_dim', type=int, default=2,
                     help='specify the dimension of class labels')
+parser.add_argument('-is_perm', '--is_perm', type=str2bool, default=False,
+                    help='specify if permuting images')
+# parser.add_argument('-is_sparse', '--is_sparse', type=str2bool, default=False,
+#                     help='specify if sparsing images')
+parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.6,
+                    help='specify the sparse ratio')
 
 # other params
 parser.add_argument('-gpus', '--gpus', type=str, default='7',
