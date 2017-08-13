@@ -33,6 +33,7 @@ class FC_model(object):
         self.is_saliency = config.is_saliency
         self.num_to_viz = config.num_to_viz
         self.is_perm = config.is_perm
+        self.is_uni_sparse = config.is_uni_sparse
         self.sparse_ratio = config.sparse_ratio
 
         if config.act_func == 'relu':
@@ -46,13 +47,20 @@ class FC_model(object):
         # Placeholders for the images and labels
         self.imgs, self.labels = placeholder_inputs(self.input_dim, self.output_dim)
 
+        # Pre-process the input images as desired before feeding them into the model
+        self.imgs_processed = preprocess(self.input_dim,
+                                         self.imgs,
+                                         self.is_perm,
+                                         self.is_uni_sparse,
+                                         self.sparse_ratio)
+
         # Initialize weights and bias
         self.w_vars, self.w_vars_init, self.b_vars, self.b_vars_zero = \
             init_weights_bias(self.input_dim, self.output_dim, self.num_neurons, self.num_layers,
                               self.init_std, self.pb)
 
         # Forward propagation
-        self.logits, self.h_vars, h_before_vars = forwardprop(self.imgs, self.w_vars, self.b_vars, activation)
+        self.logits, self.h_vars, h_before_vars = forwardprop(self.imgs_processed, self.w_vars, self.b_vars, activation)
 
         # Loss
         self.loss = entropy_loss(self.logits, self.labels)
@@ -64,7 +72,7 @@ class FC_model(object):
         self.accu = eval_accuracy(self.logits, self.labels)
 
         if self.is_diff:
-            eval_diff(self.imgs, self.labels, self.w_vars,
+            eval_diff(self.imgs_processed, self.labels, self.w_vars,
                       self.w_vars_init, self.b_vars, self.b_vars_zero,
                       activation)
 
@@ -109,13 +117,13 @@ class FC_model(object):
                     train_y_batch = train_y[self.batch_size * b: self.batch_size * b + self.batch_size]
                     _, sum_str_train, train_accu = \
                         sess.run([self.train_op, self.sum_merged, self.accu],
-                                 feed_dict={self.imgs: train_X_batch, self.labels: train_y_batch})
+                                 feed_dict={self.imgs_processed: train_X_batch, self.labels: train_y_batch})
                     train_writer.add_summary(sum_str_train, step)
 
                     # testing
                     sum_str_test, test_accu = \
                         sess.run([self.sum_merged, self.accu],
-                                 feed_dict={self.imgs: test_X, self.labels: test_y})
+                                 feed_dict={self.imgs_processed: test_X, self.labels: test_y})
                     test_writer.add_summary(sum_str_test, step)
 
                     msg = "epoch = {}, batch = {}, " \
@@ -125,14 +133,15 @@ class FC_model(object):
 
                     step += 1
 
+            # viz inputs
+            train_writer.add_summary(input_viz(sess, self.imgs_processed, self.imgs, train_X_to_viz, self.num_to_viz))
+
             # saliency map
             if self.is_saliency:
-                # viz inputs
-                train_writer.add_summary(input_viz(sess, self.imgs, train_X_to_viz, self.num_to_viz))
                 # viz saliency map calculated based on logits
-                train_writer.add_summary(saliency_map_logits(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
+                train_writer.add_summary(saliency_map_logits(sess, self.logits, self.imgs_processed, self.imgs, train_X_to_viz, self.num_to_viz))
                 # viz saliency map calculated based on log(softmax)
-                train_writer.add_summary(saliency_map_lgsoft(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
+                train_writer.add_summary(saliency_map_lgsoft(sess, self.logits, self.imgs_processed, self.imgs, train_X_to_viz, self.num_to_viz))
 
             if self.is_weights:
                 # viz weights
