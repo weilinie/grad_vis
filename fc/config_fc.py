@@ -54,6 +54,10 @@ parser.add_argument('-is_perm', '--is_perm', type=str2bool, default=False,
                     help='specify if permuting images')
 parser.add_argument('-is_uni_sparse', '--is_uni_sparse', type=str2bool, default=False,
                     help='specify if uniformly sparse images')
+parser.add_argument('-is_finite_sparse', '--is_finite_sparse', type=str2bool, default=False,
+                    help='specify if finitely sparse the images')
+parser.add_argument('-sparse_set_size','--sparse_set_size', type=int, default=1,
+                    help='the size of the sparse pattern set')
 parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.,
                     help='sparse_ratio = # of zero pixels / # of total pixels')
 

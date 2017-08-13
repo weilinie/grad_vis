@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from datetime import datetime
 
 def forwardprop(X, w_vars, b_vars, activation, name='Forwardprop'):
     with tf.name_scope(name):
@@ -64,12 +65,43 @@ def placeholder_inputs(input_dim, output_size, name='Inputs'):
 
     return images_placeholder, labels_placeholder
 
+def sparse_patterns(input_size, num_pixels, sparse_ratio, num_patterns):
+
+    # this initial sparse vector is common for all the sparse patterns
+    sparse_vec = np.array([0. if i < (int(input_size * sparse_ratio) / 3) * 3 else 1. for i in range(input_size)])
+
+    sparse_set = []
+    for k in range(num_patterns): # generate sparse patterns one by one
+
+        # pixel-wise sparsing matrix/pattern preparation
+        # add it to sparse_set at the end
+        reshaped = tf.reshape(sparse_vec, [num_pixels, 3])
+        shuffled = tf.random_shuffle(reshaped)
+        reshape_back = tf.reshape(shuffled, [input_size])
+        sparse_set += [reshape_back]
+
+    return tf.to_float(tf.stack(sparse_set))
+
+def pick_sparse(set_1, set_2, index, c):
+
+    # a function in which will randomly pick a sparse pattern from the correct set given the class
+
+    k = tf.shape(set_1)[0] # num of sparse patterns
+    pick = tf.mod(tf.multiply(index, 137), k)
+    if c == 0:
+        return set_1[pick]
+    else:
+        return set_2[pick]
+
 
 def preprocess(dim,
                X,
+               y,
                is_perm=False,
                is_uni_sparse=False,
                sparse_ratio=0.,
+               is_finite_sparse=False,
+               k=1,
                name='Preprocessing'):
 
     input_size = dim * dim * 3
@@ -100,11 +132,10 @@ def preprocess(dim,
             sparse_vec = np.array([0. if i < (int(input_size * sparse_ratio)/3)*3 else 1. for i in range(input_size)])
             reshaped = tf.reshape(sparse_vec, [num_pixels, 3])
             shuffled = tf.random_shuffle(reshaped)
-            reshape_back = tf.reshape(shuffled, [input_size])
-            sparse_matrix = tf.cast(tf.diag(reshape_back), dtype=tf.float32)
+            reshape_back = tf.cast(tf.reshape(shuffled, [input_size]), dtype=tf.float32)
 
             # sparsing
-            images_processed = tf.matmul(X, sparse_matrix, b_is_sparse=True)
+            images_processed = tf.map_fn(lambda x: tf.multiply(x, reshape_back), X)
 
             return images_processed
 
@@ -112,7 +143,22 @@ def preprocess(dim,
         # for each class, define a finite set of K different sparse patterns
         # for two different classes, their sparse pattern sets are completely different
         # to sparse a image, pick one sparse pattern randomly from its own class sparse pattern set
+        elif is_finite_sparse:
 
+            # prepare the sparse pattern sets for each class
+            set_1 = sparse_patterns(input_size, num_pixels, sparse_ratio, k)
+            set_2 = sparse_patterns(input_size, num_pixels, sparse_ratio, k)
+
+            # convert the label format
+            labels = tf.to_float(tf.argmax(y, axis=1))
+
+            # prepare a list of sparse patterns according to the labels
+            indices = tf.range(tf.shape(labels)[0])
+            s_patterns = tf.map_fn(lambda x: pick_sparse(set_1, set_2, x, labels[x]), indices, dtype=tf.float32)
+
+            images_processed = tf.multiply(X, s_patterns)
+
+            return images_processed
 
     return X
 
@@ -231,7 +277,7 @@ def eval_diff(processed, y, w_vars, w_vars_init, b_vars, b_vars_zero, activation
             tf.summary.scalar('accu/diff_accu_exsoft', diff_exsoft_accuracy)
 
 
-def saliency_map_logits(sess, logits, processed, X, images, num_to_viz=5):
+def saliency_map_logits(sess, logits, processed, X, y, images, labels, num_to_viz=5):
 
     # this is an evaluation block
     # we pass in
@@ -250,9 +296,9 @@ def saliency_map_logits(sess, logits, processed, X, images, num_to_viz=5):
     summary_Op1 = tf.summary.image('Saliency_logits', saliency_maps, max_outputs=num_to_viz)
     summary_Op2 = tf.summary.image('Saliency_logits_abs', saliency_maps_abs, max_outputs=num_to_viz)
 
-    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images})
+    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images, y: labels})
 
-def saliency_map_lgsoft(sess, logits, processed, X, images, num_to_viz=5):
+def saliency_map_lgsoft(sess, logits, processed, X, y, images, labels, num_to_viz=5):
 
     # this is an evaluation block
     # we pass in
@@ -271,9 +317,9 @@ def saliency_map_lgsoft(sess, logits, processed, X, images, num_to_viz=5):
     summary_Op1 = tf.summary.image('Saliency_lgsoft', saliency_maps, max_outputs=num_to_viz)
     summary_Op2 = tf.summary.image('Saliency_lgsoft_abs', saliency_maps_abs, max_outputs=num_to_viz)
 
-    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images})
+    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images, y: labels})
 
-def viz_weights(sess, X, w_vars, h_vars, images, num_to_viz=5):
+def viz_weights(sess, X, y, w_vars, h_vars, images, labels, num_to_viz=5):
 
     # this is an evaluation block
     # no matter how many layers we have, we will always multi them together and viz
@@ -306,10 +352,10 @@ def viz_weights(sess, X, w_vars, h_vars, images, num_to_viz=5):
         pics = tf.reshape(trans, [-1, 64, 64, 3])
         summary_Ops += [tf.summary.image('viz_img{}_masking_multi'.format(i), pics)]
 
-    return sess.run(tf.summary.merge(summary_Ops), feed_dict={X: images})
+    return sess.run(tf.summary.merge(summary_Ops), feed_dict={X: images, y: labels})
 
 
-def input_viz(sess, processed, X, images, num_to_viz=5):
+def input_viz(sess, processed, X, y, images, labels, num_to_viz=5):
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
@@ -320,4 +366,4 @@ def input_viz(sess, processed, X, images, num_to_viz=5):
     inputs = tf.reshape(processed, [-1, 64, 64, 3])
     summary_op = tf.summary.image('Input', inputs, max_outputs=num_to_viz)
 
-    return sess.run(summary_op, feed_dict={X: images})
+    return sess.run(summary_op, feed_dict={X: images, y: labels})
