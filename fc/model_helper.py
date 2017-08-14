@@ -88,11 +88,7 @@ def pick_sparse(set_1, set_2, index, c):
 
     k = tf.shape(set_1)[0] # num of sparse patterns
     pick = tf.mod(tf.multiply(index, 137), k)
-    if c == 0:
-        return set_1[pick]
-    else:
-        return set_2[pick]
-
+    return tf.cond(tf.equal(c, 0.0), lambda: set_1[pick], lambda: set_2[pick])
 
 def preprocess(dim,
                X,
