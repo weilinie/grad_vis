@@ -122,13 +122,13 @@ class FC_model(object):
                     train_y_batch = train_y[self.batch_size * b: self.batch_size * b + self.batch_size]
                     _, sum_str_train, train_accu = \
                         sess.run([self.train_op, self.sum_merged, self.accu],
-                                 feed_dict={self.imgs_processed: train_X_batch, self.labels: train_y_batch})
+                                 feed_dict={self.imgs: train_X_batch, self.labels: train_y_batch})
                     train_writer.add_summary(sum_str_train, step)
 
                     # testing
                     sum_str_test, test_accu = \
                         sess.run([self.sum_merged, self.accu],
-                                 feed_dict={self.imgs_processed: test_X, self.labels: test_y})
+                                 feed_dict={self.imgs: test_X, self.labels: test_y})
                     test_writer.add_summary(sum_str_test, step)
 
                     msg = "epoch = {}, batch = {}, " \
