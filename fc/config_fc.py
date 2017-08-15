@@ -46,16 +46,20 @@ parser.add_argument('-opt', '--opt_type', type=str, default='Adam',
 # data params
 parser.add_argument('-dataset', '--dataset', type=str, default='2Rec_64_4000_20_1_black',
                     help='specify the dataset to use')
-parser.add_argument('-indim', '--input_dim', type=int, default=64,
+parser.add_argument('-input_dim', '--input_dim', type=int, default=64,
                     help='specify the dimension of input image')
 parser.add_argument('-outdim', '--output_dim', type=int, default=2,
                     help='specify the dimension of class labels')
 parser.add_argument('-is_perm', '--is_perm', type=str2bool, default=False,
                     help='specify if permuting images')
-# parser.add_argument('-is_sparse', '--is_sparse', type=str2bool, default=False,
-#                     help='specify if sparsing images')
-parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.6,
-                    help='specify the sparse ratio')
+parser.add_argument('-is_uni_sparse', '--is_uni_sparse', type=str2bool, default=False,
+                    help='specify if uniformly sparse images')
+parser.add_argument('-is_finite_sparse', '--is_finite_sparse', type=str2bool, default=False,
+                    help='specify if finitely sparse the images')
+parser.add_argument('-sparse_set_size','--sparse_set_size', type=int, default=1,
+                    help='the size of the sparse pattern set')
+parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.,
+                    help='sparse_ratio = # of zero pixels / # of total pixels')
 
 # other params
 parser.add_argument('-gpus', '--gpus', type=str, default='7',
