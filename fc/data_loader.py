@@ -16,26 +16,40 @@ def from_one_hot(one_hot):
     return np.argmax(one_hot, axis=1)
 
 
-def preprocessing(X, is_perm=True, sparse_ratio=0.6):
-
+def preprocessing(X, is_total_perm=False, is_pixel_perm=False, is_rand_sparse=False,
+                  is_single_sparse=False, is_multi_sparse=False, sparse_ratio=0.6):
     # use permutation
-    if is_perm:
+    if is_total_perm:
         print('Starting permuting images...')
         perm_mat = np.random.permutation(np.identity(X.shape[1]))
         X = np.matmul(X, perm_mat)
 
-    # use random sampling (sparse ratio denotes how many zeros in images)
-    elif sparse_ratio:
-        print('Starting sparsing images...')
-        randsamp_vec = np.array([0 if i < int(X.shape[1] * sparse_ratio) else 1 for i in range(X.shape[1])])
-        np.random.shuffle(randsamp_vec)
-        randsamp_mat = np.diag(randsamp_vec)
-        X = np.matmul(X, randsamp_mat)
+    elif is_pixel_perm:
+        pass
+
+    elif is_rand_sparse:
+        pass
+
+    elif is_single_sparse:
+        pass
+
+    elif is_multi_sparse:
+        pass
+
+    # # use random sampling (sparse ratio denotes how many zeros in images)
+    # elif sparse_ratio:
+    #     print('Starting sparsing images...')
+    #     randsamp_vec = np.array([0 if i < int(X.shape[1] * sparse_ratio) else 1 for i in range(X.shape[1])])
+    #     np.random.shuffle(randsamp_vec)
+    #     randsamp_mat = np.diag(randsamp_vec)
+    #     X = np.matmul(X, randsamp_mat)
 
     return X
 
 
-def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1, is_perm=True, sparse_ratio=0.6):
+def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1, is_total_perm=False,
+                    is_pixel_perm=False, is_rand_sparse=False, is_single_sparse=False, is_multi_sparse=False,
+                    sparse_ratio=0.6):
     """ Read the data set and split them into training and test sets """
     X = []
     Label = []
@@ -46,7 +60,8 @@ def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1, i
         Label.append(int(os.path.basename(image_path).split("_")[0]))
         X.append(misc.imread(image_path, mode=image_mode).flatten())
     X = (np.array(X) / 255.).astype(np.float32)
-    X = preprocessing(X, is_perm, sparse_ratio)
+    X = preprocessing(X, is_total_perm, is_pixel_perm, is_rand_sparse,
+                      is_single_sparse, is_multi_sparse, sparse_ratio)
     Label = np.array(Label)
     fns = np.array(fns)
 

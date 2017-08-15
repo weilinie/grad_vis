@@ -16,22 +16,28 @@ def prep_dirs(FLAGS):
     data_path = os.path.join("../data", FLAGS.dataset)
 
     # summary path and name
-    summary_path = os.path.join("../summaries", FLAGS.spath, "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}_perm{}_sparse{}__{}".
+    summary_path = os.path.join("../summaries", FLAGS.spath, "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}_istotperm{}_"
+                                                             "ispixperm{}_israndspr{}_issinspr{}_ismulspr{}_sprrat{}__{}".
                                 format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
-                                       FLAGS.lr, FLAGS.init_std, FLAGS.rs, int(FLAGS.is_perm),
-                                       FLAGS.sparse_ratio, FLAGS.dataset))
+                                       FLAGS.lr, FLAGS.init_std, FLAGS.rs, int(FLAGS.is_total_perm),
+                                       int(FLAGS.is_pixel_perm), int(FLAGS.is_rand_sparse), int(FLAGS.is_single_sparse),
+                                       int(FLAGS.is_multi_sparse), FLAGS.sparse_ratio, FLAGS.dataset))
 
     # always save the training log
-    log_dir = os.path.join("../logs", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}_perm{}_sparse{}__{}".
+    log_dir = os.path.join("../logs", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}_istotperm{}_"
+                                      "ispixperm{}_israndspr{}_issinspr{}_ismulspr{}_sprrat{}__{}".
                            format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
-                                  FLAGS.lr, FLAGS.init_std, FLAGS.rs, int(FLAGS.is_perm),
-                                  FLAGS.sparse_ratio, FLAGS.dataset))
+                                  FLAGS.lr, FLAGS.init_std, FLAGS.rs, int(FLAGS.is_total_perm),
+                                  int(FLAGS.is_pixel_perm), int(FLAGS.is_rand_sparse), int(FLAGS.is_single_sparse),
+                                  int(FLAGS.is_multi_sparse), FLAGS.sparse_ratio, FLAGS.dataset))
 
     # always save the trained model
-    model_path = os.path.join("../saved_models", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}_perm{}_sparse{}__{}".
+    model_path = os.path.join("../saved_models", "fc_nlayers{}_nunits{}_bs{}_lr{}_std{}_rs{}_istotperm{}_"
+                                                 "ispixperm{}_israndspr{}_issinspr{}_ismulspr{}_sprrat{}__{}".
                               format(FLAGS.num_layers, FLAGS.num_neurons, FLAGS.batch_size,
-                                     FLAGS.lr, FLAGS.init_std, FLAGS.rs, int(FLAGS.is_perm),
-                                     FLAGS.sparse_ratio, FLAGS.dataset))
+                                     FLAGS.lr, FLAGS.init_std, FLAGS.rs, int(FLAGS.is_total_perm),
+                                     int(FLAGS.is_pixel_perm), int(FLAGS.is_rand_sparse), int(FLAGS.is_single_sparse),
+                                     int(FLAGS.is_multi_sparse), FLAGS.sparse_ratio, FLAGS.dataset))
 
     if not os.path.exists(model_path):
         os.makedirs(model_path)
@@ -39,7 +45,6 @@ def prep_dirs(FLAGS):
         os.makedirs(log_dir)
     if not os.path.exists(summary_path):
         os.makedirs(summary_path)
-
 
     return data_path, log_dir, model_path, summary_path
 
