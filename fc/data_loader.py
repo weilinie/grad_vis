@@ -16,25 +16,7 @@ def from_one_hot(one_hot):
     return np.argmax(one_hot, axis=1)
 
 
-<<<<<<< HEAD
-# def preprocessing(X, is_perm=True, sparse_ratio=0.6):
-#
-#     # use permutation
-#     if is_perm:
-#         print('Starting permuting images...')
-#         perm_mat = np.random.permutation(np.identity(X.shape[1]))
-#         X = np.matmul(X, perm_mat)
-#
-#     # use random sampling (sparse ratio denotes how many zeros in images)
-#     elif sparse_ratio:
-#         print('Starting sparsing images...')
-#
-#         np.random.shuffle(randsamp_vec)
-#         randsamp_mat = np.diag(randsamp_vec)
-#         X = np.matmul(X, randsamp_mat)
-#
-#     return X
-=======
+
 def preprocessing(X, is_perm=True, is_randsamp=True, p=0.6):
 
     # use permutation
@@ -50,7 +32,6 @@ def preprocessing(X, is_perm=True, is_randsamp=True, p=0.6):
         X = np.matmul(X, randsamp_mat)
 
     return X
->>>>>>> parent of 721460e... fix some bugs
 
 def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1, is_perm=True, is_randsamp=False, p=0.6):
     """ Read the data set and split them into training and test sets """
@@ -63,11 +44,8 @@ def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1, i
         Label.append(int(os.path.basename(image_path).split("_")[0]))
         image = X.append(misc.imread(image_path, mode=image_mode).flatten())
     X = (np.array(X) / 255.).astype(np.float32)
-<<<<<<< HEAD
-    # X = preprocessing(X, is_perm, sparse_ratio)
-=======
+
     X = preprocessing(X, is_perm, is_randsamp, p)
->>>>>>> parent of 721460e... fix some bugs
     Label = np.array(Label)
     fns = np.array(fns)
 

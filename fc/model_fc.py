@@ -32,14 +32,12 @@ class FC_model(object):
 
         self.is_saliency = config.is_saliency
         self.num_to_viz = config.num_to_viz
-<<<<<<< HEAD
+
         self.is_perm = config.is_perm
         self.is_uni_sparse = config.is_uni_sparse
         self.is_finite_sparse = config.is_finite_sparse
         self.k = config.sparse_set_size
         self.sparse_ratio = config.sparse_ratio
-=======
->>>>>>> parent of 721460e... fix some bugs
 
         if config.act_func == 'relu':
             activation = tf.nn.relu
