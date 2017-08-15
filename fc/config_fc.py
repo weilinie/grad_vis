@@ -46,7 +46,7 @@ parser.add_argument('-opt', '--opt_type', type=str, default='Adam',
 # data params
 parser.add_argument('-dataset', '--dataset', type=str, default='2Rec_64_4000_20_1_black',
                     help='specify the dataset to use')
-parser.add_argument('-input_dim', '--input_dim', type=int, default=64,
+parser.add_argument('-indim', '--input_dim', type=int, default=64,
                     help='specify the dimension of input image')
 parser.add_argument('-outdim', '--output_dim', type=int, default=2,
                     help='specify the dimension of class labels')
