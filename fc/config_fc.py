@@ -61,6 +61,7 @@ parser.add_argument('-sparse_set_size','--sparse_set_size', type=int, default=1,
                     help='the size of the sparse pattern set')
 parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.,
                     help='sparse_ratio = # of zero pixels / # of total pixels')
+>>>>>>> parent of 721460e... fix some bugs
 
 # other params
 parser.add_argument('-gpus', '--gpus', type=str, default='7',
