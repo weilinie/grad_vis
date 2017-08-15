@@ -2,9 +2,9 @@ import tensorflow as tf
 import numpy as np
 from datetime import datetime
 
+
 def forwardprop(X, w_vars, b_vars, activation, name='Forwardprop'):
     with tf.name_scope(name):
-
         num_layers = len(w_vars) - 1
 
         h_before = tf.matmul(X, w_vars[0]) + b_vars[0]
@@ -57,6 +57,7 @@ def eval_accuracy(logits, labels, name='Eval_accu'):
 
     return accu
 
+
 def placeholder_inputs(input_dim, output_size, name='Inputs'):
     with tf.name_scope(name):
         input_size = input_dim * input_dim * 3
@@ -65,13 +66,14 @@ def placeholder_inputs(input_dim, output_size, name='Inputs'):
 
     return images_placeholder, labels_placeholder
 
-def sparse_patterns(input_size, num_pixels, sparse_ratio, num_patterns):
 
+def sparse_patterns(input_size, num_pixels, sparse_ratio, num_patterns):
     # this initial sparse vector is common for all the sparse patterns
-    sparse_vec = np.array([0. if i < (int(input_size * sparse_ratio) / 3) * 3 else 1. for i in range(input_size)])
+    n_ch = 3
+    sparse_vec = np.array([0. if i < (int(input_size * sparse_ratio) / n_ch) * n_ch else 1. for i in range(input_size)])
 
     sparse_set = []
-    for k in range(num_patterns): # generate sparse patterns one by one
+    for k in range(num_patterns):  # generate sparse patterns one by one
 
         # pixel-wise sparsing matrix/pattern preparation
         # add it to sparse_set at the end
@@ -82,13 +84,15 @@ def sparse_patterns(input_size, num_pixels, sparse_ratio, num_patterns):
 
     return tf.to_float(tf.stack(sparse_set))
 
-def pick_sparse(set_1, set_2, index, c):
 
+def pick_sparse(sparse_set1, sparse_set2, c):
     # a function in which will randomly pick a sparse pattern from the correct set given the class
 
-    k = tf.shape(set_1)[0] # num of sparse patterns
-    pick = tf.mod(tf.multiply(index, 137), k)
-    return tf.cond(tf.equal(c, 0.0), lambda: set_1[pick], lambda: set_2[pick])
+    k = sparse_set1.get_shape().as_list()[0]  # num of sparse patterns
+    samples = tf.multinomial(tf.log([[1. for _ in range(k)]]), 1)
+    pick = tf.cast(samples[0][0], tf.int32)
+    return tf.cond(tf.equal(c, 0.0), lambda: sparse_set1[pick], lambda: sparse_set2[pick])
+
 
 def preprocess(dim,
                X,
@@ -99,7 +103,6 @@ def preprocess(dim,
                is_finite_sparse=False,
                k=1,
                name='Preprocessing'):
-
     input_size = dim * dim * 3
     num_pixels = dim * dim  # total num of pixels
 
@@ -113,9 +116,9 @@ def preprocess(dim,
             identity = tf.eye(input_size, dtype=tf.float32)
             reshaped = tf.reshape(identity, [num_pixels, 3, input_size])
             shuffled = tf.random_shuffle(reshaped)
-            permu_matrix = tf.reshape(shuffled, [input_size, input_size])
+            permu_matrix = tf.reshape(shuffled, [-1, input_size])
 
-            # permutate ...
+            # permute...
             images_processed = tf.matmul(X, permu_matrix, b_is_sparse=True)
 
             return images_processed
@@ -125,13 +128,10 @@ def preprocess(dim,
         elif is_uni_sparse:
 
             # pixel-wise sparsing matrix preparation
-            sparse_vec = np.array([0. if i < (int(input_size * sparse_ratio)/3)*3 else 1. for i in range(input_size)])
-            reshaped = tf.reshape(sparse_vec, [num_pixels, 3])
-            shuffled = tf.random_shuffle(reshaped)
-            reshape_back = tf.cast(tf.reshape(shuffled, [input_size]), dtype=tf.float32)
+            sparse_set = sparse_patterns(input_size, num_pixels, sparse_ratio, 1)
 
             # sparsing
-            images_processed = tf.map_fn(lambda x: tf.multiply(x, reshape_back), X)
+            images_processed = tf.map_fn(lambda x: tf.multiply(x, sparse_set[0]), X)
 
             return images_processed
 
@@ -142,23 +142,21 @@ def preprocess(dim,
         elif is_finite_sparse:
 
             # prepare the sparse pattern sets for each class
-            set_1 = sparse_patterns(input_size, num_pixels, sparse_ratio, k)
-            set_2 = sparse_patterns(input_size, num_pixels, sparse_ratio, k)
+            sparse_set1 = sparse_patterns(input_size, num_pixels, sparse_ratio, k)
+            sparse_set2 = sparse_patterns(input_size, num_pixels, sparse_ratio, k)
 
             # convert the label format
             labels = tf.to_float(tf.argmax(y, axis=1))
 
             # prepare a list of sparse patterns according to the labels
             indices = tf.range(tf.shape(labels)[0])
-            s_patterns = tf.map_fn(lambda x: pick_sparse(set_1, set_2, x, labels[x]), indices, dtype=tf.float32)
+            s_patterns = tf.map_fn(lambda idx: pick_sparse(sparse_set1, sparse_set2, labels[idx]), indices, dtype=tf.float32)
 
             images_processed = tf.multiply(X, s_patterns)
 
             return images_processed
 
     return X
-
-
 
 
 def init_weights_bias(input_dim, output_size, num_neurons=100, num_layers=1, init_std=1e-3, pb=False):
@@ -266,7 +264,8 @@ def eval_diff(processed, y, w_vars, w_vars_init, b_vars, b_vars_zero, activation
             b_vars_zero_exsoft += [b_vars[-1]]
 
             logits_diff_exsoft, _, _ = \
-                forwardprop(processed, w_vars_diff_exsoft, b_vars_zero_exsoft, activation, name='Forwardprop_diff_exsoft')
+                forwardprop(processed, w_vars_diff_exsoft, b_vars_zero_exsoft, activation,
+                            name='Forwardprop_diff_exsoft')
 
             # Evaluate the accuracy
             diff_exsoft_accuracy = eval_accuracy(logits_diff_exsoft, y, name='Eval_accu_diff_exsoft')
@@ -274,7 +273,6 @@ def eval_diff(processed, y, w_vars, w_vars_init, b_vars, b_vars_zero, activation
 
 
 def saliency_map_logits(sess, logits, processed, X, y, images, labels, num_to_viz=5):
-
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
@@ -294,8 +292,8 @@ def saliency_map_logits(sess, logits, processed, X, y, images, labels, num_to_vi
 
     return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images, y: labels})
 
-def saliency_map_lgsoft(sess, logits, processed, X, y, images, labels, num_to_viz=5):
 
+def saliency_map_lgsoft(sess, logits, processed, X, y, images, labels, num_to_viz=5):
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
@@ -315,8 +313,8 @@ def saliency_map_lgsoft(sess, logits, processed, X, y, images, labels, num_to_vi
 
     return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images, y: labels})
 
-def viz_weights(sess, X, y, w_vars, h_vars, images, labels, num_to_viz=5):
 
+def viz_weights(sess, X, y, w_vars, h_vars, images, labels, num_to_viz=5):
     # this is an evaluation block
     # no matter how many layers we have, we will always multi them together and viz
     # the num of viz pictures equal to the number of classes
@@ -324,7 +322,7 @@ def viz_weights(sess, X, y, w_vars, h_vars, images, labels, num_to_viz=5):
     multi = w_vars[0]
     multi_results = [multi]
     for i in range(len(w_vars) - 1):
-        multi = tf.matmul(multi, w_vars[i+1])
+        multi = tf.matmul(multi, w_vars[i + 1])
         multi_results += [multi]
 
     summary_Ops = []
@@ -338,12 +336,12 @@ def viz_weights(sess, X, y, w_vars, h_vars, images, labels, num_to_viz=5):
 
     # weights multi with masking matrices in between
 
-    for i in range(num_to_viz): # loop the viz set, for each input image
+    for i in range(num_to_viz):  # loop the viz set, for each input image
         result = w_vars[0]
-        for j in range(len(w_vars) - 1): # loop the layers, for each layer
+        for j in range(len(w_vars) - 1):  # loop the layers, for each layer
             masking = tf.diag(tf.sign(h_vars[j][i]))
             temp = tf.matmul(result, masking)
-            result = tf.matmul(temp, w_vars[j+1])
+            result = tf.matmul(temp, w_vars[j + 1])
         trans = tf.transpose(result)
         pics = tf.reshape(trans, [-1, 64, 64, 3])
         summary_Ops += [tf.summary.image('viz_img{}_masking_multi'.format(i), pics)]
