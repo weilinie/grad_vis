@@ -50,6 +50,7 @@ parser.add_argument('-indim', '--input_dim', type=int, default=64,
                     help='specify the dimension of input image')
 parser.add_argument('-outdim', '--output_dim', type=int, default=2,
                     help='specify the dimension of class labels')
+<<<<<<< HEAD
 parser.add_argument('-is_perm', '--is_perm', type=str2bool, default=False,
                     help='specify if permuting images')
 parser.add_argument('-is_uni_sparse', '--is_uni_sparse', type=str2bool, default=False,

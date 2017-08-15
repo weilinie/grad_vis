@@ -32,11 +32,14 @@ class FC_model(object):
 
         self.is_saliency = config.is_saliency
         self.num_to_viz = config.num_to_viz
+<<<<<<< HEAD
         self.is_perm = config.is_perm
         self.is_uni_sparse = config.is_uni_sparse
         self.is_finite_sparse = config.is_finite_sparse
         self.k = config.sparse_set_size
         self.sparse_ratio = config.sparse_ratio
+=======
+>>>>>>> parent of 721460e... fix some bugs
 
         if config.act_func == 'relu':
             activation = tf.nn.relu
@@ -86,8 +89,7 @@ class FC_model(object):
 
     def train(self, data_dir, log_dir, model_path, summary_path):
 
-        train_X, test_X, train_y, test_y, train_fn, test_fn \
-            = read_image_data(data_dir, 'RGB', is_perm=self.is_perm, sparse_ratio=self.sparse_ratio)
+        train_X, test_X, train_y, test_y, train_fn, test_fn = read_image_data(data_dir, 'RGB')
 
         # just to pick a few to visualize. image is huge
         to_viz = np.random.choice(range(train_X.shape[0]), self.num_to_viz)
