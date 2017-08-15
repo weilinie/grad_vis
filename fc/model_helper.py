@@ -1,10 +1,9 @@
 import tensorflow as tf
-import numpy as np
-from datetime import datetime
-
+from utils import normalize_contrast
 
 def forwardprop(X, w_vars, b_vars, activation, name='Forwardprop'):
     with tf.name_scope(name):
+
         num_layers = len(w_vars) - 1
 
         h_before = tf.matmul(X, w_vars[0]) + b_vars[0]
@@ -65,24 +64,6 @@ def placeholder_inputs(input_dim, output_size, name='Inputs'):
         labels_placeholder = tf.placeholder(tf.int32, shape=(None, output_size), name='y')
 
     return images_placeholder, labels_placeholder
-
-
-def sparse_patterns(input_size, num_pixels, sparse_ratio, num_patterns):
-    # this initial sparse vector is common for all the sparse patterns
-    n_ch = 3
-    sparse_vec = np.array([0. if i < (int(input_size * sparse_ratio) / n_ch) * n_ch else 1. for i in range(input_size)])
-
-    sparse_set = []
-    for k in range(num_patterns):  # generate sparse patterns one by one
-
-        # pixel-wise sparsing matrix/pattern preparation
-        # add it to sparse_set at the end
-        reshaped = tf.reshape(sparse_vec, [num_pixels, 3])
-        shuffled = tf.random_shuffle(reshaped)
-        reshape_back = tf.reshape(shuffled, [input_size])
-        sparse_set += [reshape_back]
-
-    return tf.to_float(tf.stack(sparse_set))
 
 
 def init_weights_bias(input_dim, output_size, num_neurons=100, num_layers=1, init_std=1e-3, pb=False):
@@ -169,12 +150,12 @@ def init_weights_bias(input_dim, output_size, num_neurons=100, num_layers=1, ini
     return w_vars, w_vars_init, b_vars, b_vars_zero
 
 
-def eval_diff(processed, y, w_vars, w_vars_init, b_vars, b_vars_zero, activation, name='Eval_diff'):
+def eval_diff(X, y, w_vars, w_vars_init, b_vars, b_vars_zero, activation, name='Eval_diff'):
     with tf.name_scope(name):
         with tf.name_scope('diff'):
             # Calculate diff_weights and use it get logits_diff
             w_vars_diff = [w_vars[i] - w_vars_init[i] for i in range(len(w_vars))]
-            logits_diff, _, _ = forwardprop(processed, w_vars_diff, b_vars_zero, activation, name='Forwardprop_diff')
+            logits_diff, _, _ = forwardprop(X, w_vars_diff, b_vars_zero, activation, name='Forwardprop_diff')
 
             # Evaluate the accuracy
             diff_accuracy = eval_accuracy(logits_diff, y, name='Eval_accu_diff')
@@ -190,15 +171,15 @@ def eval_diff(processed, y, w_vars, w_vars_init, b_vars, b_vars_zero, activation
             b_vars_zero_exsoft += [b_vars[-1]]
 
             logits_diff_exsoft, _, _ = \
-                forwardprop(processed, w_vars_diff_exsoft, b_vars_zero_exsoft, activation,
-                            name='Forwardprop_diff_exsoft')
+                forwardprop(X, w_vars_diff_exsoft, b_vars_zero_exsoft, activation, name='Forwardprop_diff_exsoft')
 
             # Evaluate the accuracy
             diff_exsoft_accuracy = eval_accuracy(logits_diff_exsoft, y, name='Eval_accu_diff_exsoft')
             tf.summary.scalar('accu/diff_accu_exsoft', diff_exsoft_accuracy)
 
 
-def saliency_map_logits(sess, logits, processed, X, y, images, labels, num_to_viz=5):
+def saliency_map_logits(sess, logits, X, images, num_to_viz=5):
+
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
@@ -208,7 +189,7 @@ def saliency_map_logits(sess, logits, processed, X, y, images, labels, num_to_vi
     # the saliency map is calculated based on logits
 
     max_logits = tf.reduce_max(logits, axis=1)
-    saliencies = tf.gradients(max_logits, processed)
+    saliencies = tf.gradients(max_logits, X)
 
     saliency_maps = tf.reshape(saliencies, [-1, 64, 64, 3])
     saliency_maps_abs = tf.abs(saliency_maps)
@@ -216,10 +197,10 @@ def saliency_map_logits(sess, logits, processed, X, y, images, labels, num_to_vi
     summary_Op1 = tf.summary.image('Saliency_logits', saliency_maps, max_outputs=num_to_viz)
     summary_Op2 = tf.summary.image('Saliency_logits_abs', saliency_maps_abs, max_outputs=num_to_viz)
 
-    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images, y: labels})
+    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images})
 
+def saliency_map_lgsoft(sess, logits, X, images, num_to_viz=5):
 
-def saliency_map_lgsoft(sess, logits, processed, X, y, images, labels, num_to_viz=5):
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
@@ -229,7 +210,7 @@ def saliency_map_lgsoft(sess, logits, processed, X, y, images, labels, num_to_vi
     # the saliency map is calculated based on softmax
 
     max_soft = tf.reduce_max(tf.nn.softmax(logits), axis=1)
-    saliencies = tf.gradients(tf.log(max_soft), processed)
+    saliencies = tf.gradients(tf.log(max_soft), X)
 
     saliency_maps = tf.reshape(saliencies, [-1, 64, 64, 3])
     saliency_maps_abs = tf.abs(saliency_maps)
@@ -237,10 +218,10 @@ def saliency_map_lgsoft(sess, logits, processed, X, y, images, labels, num_to_vi
     summary_Op1 = tf.summary.image('Saliency_lgsoft', saliency_maps, max_outputs=num_to_viz)
     summary_Op2 = tf.summary.image('Saliency_lgsoft_abs', saliency_maps_abs, max_outputs=num_to_viz)
 
-    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images, y: labels})
+    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images})
 
+def viz_weights(sess, X, w_vars, h_vars, images, num_to_viz=5):
 
-def viz_weights(sess, X, y, w_vars, h_vars, images, labels, num_to_viz=5):
     # this is an evaluation block
     # no matter how many layers we have, we will always multi them together and viz
     # the num of viz pictures equal to the number of classes
@@ -248,7 +229,7 @@ def viz_weights(sess, X, y, w_vars, h_vars, images, labels, num_to_viz=5):
     multi = w_vars[0]
     multi_results = [multi]
     for i in range(len(w_vars) - 1):
-        multi = tf.matmul(multi, w_vars[i + 1])
+        multi = tf.matmul(multi, w_vars[i+1])
         multi_results += [multi]
 
     summary_Ops = []
@@ -262,20 +243,20 @@ def viz_weights(sess, X, y, w_vars, h_vars, images, labels, num_to_viz=5):
 
     # weights multi with masking matrices in between
 
-    for i in range(num_to_viz):  # loop the viz set, for each input image
+    for i in range(num_to_viz): # loop the viz set, for each input image
         result = w_vars[0]
-        for j in range(len(w_vars) - 1):  # loop the layers, for each layer
+        for j in range(len(w_vars) - 1): # loop the layers, for each layer
             masking = tf.diag(tf.sign(h_vars[j][i]))
             temp = tf.matmul(result, masking)
-            result = tf.matmul(temp, w_vars[j + 1])
+            result = tf.matmul(temp, w_vars[j+1])
         trans = tf.transpose(result)
         pics = tf.reshape(trans, [-1, 64, 64, 3])
         summary_Ops += [tf.summary.image('viz_img{}_masking_multi'.format(i), pics)]
 
-    return sess.run(tf.summary.merge(summary_Ops), feed_dict={X: images, y: labels})
+    return sess.run(tf.summary.merge(summary_Ops), feed_dict={X: images})
 
 
-def input_viz(sess, processed, X, y, images, labels, num_to_viz=5):
+def input_viz(sess, X, images, num_to_viz=5):
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
@@ -283,7 +264,7 @@ def input_viz(sess, processed, X, y, images, labels, num_to_viz=5):
     # 3. images: input images to viz
 
     # check what the inputs look like
-    inputs = tf.reshape(processed, [-1, 64, 64, 3])
-    summary_op = tf.summary.image('Input', inputs, max_outputs=num_to_viz)
+    inputs = tf.reshape(X, [-1, 64, 64, 3])
+    summary_op = tf.summary.image('Inputs', inputs, max_outputs=num_to_viz)
 
-    return sess.run(summary_op, feed_dict={X: images, y: labels})
+    return sess.run(summary_op, feed_dict={X: images})

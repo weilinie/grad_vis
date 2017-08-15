@@ -32,15 +32,8 @@ class FC_model(object):
 
         self.is_saliency = config.is_saliency
         self.num_to_viz = config.num_to_viz
-<<<<<<< HEAD
-
         self.is_perm = config.is_perm
-        self.is_uni_sparse = config.is_uni_sparse
-        self.is_finite_sparse = config.is_finite_sparse
-        self.k = config.sparse_set_size
         self.sparse_ratio = config.sparse_ratio
-=======
->>>>>>> parent of 721460e... fix some bugs
 
         if config.act_func == 'relu':
             activation = tf.nn.relu
@@ -53,23 +46,13 @@ class FC_model(object):
         # Placeholders for the images and labels
         self.imgs, self.labels = placeholder_inputs(self.input_dim, self.output_dim)
 
-        # Pre-process the input images as desired before feeding them into the model
-        self.imgs_processed = preprocess(self.input_dim,
-                                         self.imgs,
-                                         self.labels,
-                                         self.is_perm,
-                                         self.is_uni_sparse,
-                                         self.sparse_ratio,
-                                         self.is_finite_sparse,
-                                         self.k)
-
         # Initialize weights and bias
         self.w_vars, self.w_vars_init, self.b_vars, self.b_vars_zero = \
             init_weights_bias(self.input_dim, self.output_dim, self.num_neurons, self.num_layers,
                               self.init_std, self.pb)
 
         # Forward propagation
-        self.logits, self.h_vars, h_before_vars = forwardprop(self.imgs_processed, self.w_vars, self.b_vars, activation)
+        self.logits, self.h_vars, h_before_vars = forwardprop(self.imgs, self.w_vars, self.b_vars, activation)
 
         # Loss
         self.loss = entropy_loss(self.logits, self.labels)
@@ -81,7 +64,7 @@ class FC_model(object):
         self.accu = eval_accuracy(self.logits, self.labels)
 
         if self.is_diff:
-            eval_diff(self.imgs_processed, self.labels, self.w_vars,
+            eval_diff(self.imgs, self.labels, self.w_vars,
                       self.w_vars_init, self.b_vars, self.b_vars_zero,
                       activation)
 
@@ -90,13 +73,14 @@ class FC_model(object):
 
     def train(self, data_dir, log_dir, model_path, summary_path):
 
-        train_X, test_X, train_y, test_y, train_fn, test_fn = read_image_data(data_dir, 'RGB')
+        train_X, test_X, train_y, test_y, train_fn, test_fn \
+            = read_image_data(data_dir, 'RGB', is_perm=self.is_perm, sparse_ratio=self.sparse_ratio)
 
         # just to pick a few to visualize. image is huge
         to_viz = np.random.choice(range(train_X.shape[0]), self.num_to_viz)
 
-        train_X_to_viz = train_X[to_viz]
-        train_y_to_viz = train_y[to_viz]
+        train_X_to_viz = train_X[to_viz, :]
+        train_y_to_viz = train_y[to_viz, :]
         train_fn_to_viz = train_fn[to_viz]
 
         # logging info
@@ -141,47 +125,18 @@ class FC_model(object):
 
                     step += 1
 
-            # viz inputs
-            train_writer.add_summary(input_viz(sess,
-                                               self.imgs_processed,
-                                               self.imgs,
-                                               self.labels,
-                                               train_X_to_viz,
-                                               train_y_to_viz,
-                                               self.num_to_viz))
-
             # saliency map
             if self.is_saliency:
+                # viz inputs
+                train_writer.add_summary(input_viz(sess, self.imgs, train_X_to_viz, self.num_to_viz))
                 # viz saliency map calculated based on logits
-                train_writer.add_summary(saliency_map_logits(sess,
-                                                             self.logits,
-                                                             self.imgs_processed,
-                                                             self.imgs,
-                                                             self.labels,
-                                                             train_X_to_viz,
-                                                             train_y_to_viz,
-                                                             self.num_to_viz))
-
+                train_writer.add_summary(saliency_map_logits(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
                 # viz saliency map calculated based on log(softmax)
-                train_writer.add_summary(saliency_map_lgsoft(sess,
-                                                             self.logits,
-                                                             self.imgs_processed,
-                                                             self.imgs,
-                                                             self.labels,
-                                                             train_X_to_viz,
-                                                             train_y_to_viz,
-                                                             self.num_to_viz))
+                train_writer.add_summary(saliency_map_lgsoft(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
 
             if self.is_weights:
                 # viz weights
-                train_writer.add_summary(viz_weights(sess,
-                                                     self.imgs,
-                                                     self.labels,
-                                                     self.w_vars,
-                                                     self.h_vars,
-                                                     train_X_to_viz,
-                                                     train_y_to_viz,
-                                                     self.num_to_viz))
+                train_writer.add_summary(viz_weights(sess, self.imgs, self.w_vars, self.h_vars, train_X_to_viz, self.num_to_viz))
 
             # save model
             save_path = saver.save(sess, os.path.join(model_path, "model.ckpt"), global_step=step)

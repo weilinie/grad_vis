@@ -50,19 +50,12 @@ parser.add_argument('-indim', '--input_dim', type=int, default=64,
                     help='specify the dimension of input image')
 parser.add_argument('-outdim', '--output_dim', type=int, default=2,
                     help='specify the dimension of class labels')
-<<<<<<< HEAD
 parser.add_argument('-is_perm', '--is_perm', type=str2bool, default=False,
                     help='specify if permuting images')
-parser.add_argument('-is_uni_sparse', '--is_uni_sparse', type=str2bool, default=False,
-                    help='specify if uniformly sparse images')
-parser.add_argument('-is_finite_sparse', '--is_finite_sparse', type=str2bool, default=False,
-                    help='specify if finitely sparse the images')
-parser.add_argument('-sparse_set_size','--sparse_set_size', type=int, default=1,
-                    help='the size of the sparse pattern set')
-parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.,
-                    help='sparse_ratio = # of zero pixels / # of total pixels')
-=======
->>>>>>> parent of 721460e... fix some bugs
+# parser.add_argument('-is_sparse', '--is_sparse', type=str2bool, default=False,
+#                     help='specify if sparsing images')
+parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.6,
+                    help='specify the sparse ratio')
 
 # other params
 parser.add_argument('-gpus', '--gpus', type=str, default='7',
