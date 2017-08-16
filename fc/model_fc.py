@@ -39,6 +39,7 @@ class FC_model(object):
         self.is_single_sparse = config.is_single_sparse
         self.is_multi_sparse = config.is_multi_sparse
         self.sparse_ratio = config.sparse_ratio
+        self.sparse_set_size = config.sparse_set_size
 
         if config.act_func == 'relu':
             activation = tf.nn.relu
@@ -79,10 +80,15 @@ class FC_model(object):
     def train(self, data_dir, log_dir, model_path, summary_path):
 
         train_X, test_X, train_y, test_y, train_fn, test_fn \
-            = read_image_data(data_dir, 'RGB', is_total_perm=self.is_total_perm,
-                              is_pixel_perm=self.is_pixel_perm, is_rand_sparse=self.is_rand_sparse,
-                              is_single_sparse=self.is_single_sparse, is_multi_sparse=self.is_multi_sparse,
-                              sparse_ratio=self.sparse_ratio)
+            = read_image_data(data_dir,
+                              'RGB',
+                              is_total_perm=self.is_total_perm,
+                              is_pixel_perm=self.is_pixel_perm,
+                              is_rand_sparse=self.is_rand_sparse,
+                              is_single_sparse=self.is_single_sparse,
+                              is_multi_sparse=self.is_multi_sparse,
+                              sparse_ratio=self.sparse_ratio,
+                              sparse_set_size=self.sparse_set_size)
 
         # just to pick a few to visualize. image is huge
         to_viz = np.random.choice(range(train_X.shape[0]), self.num_to_viz)
