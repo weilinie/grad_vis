@@ -39,6 +39,7 @@ class FC_model(object):
         self.is_single_sparse = config.is_single_sparse
         self.is_multi_sparse = config.is_multi_sparse
         self.sparse_ratio = config.sparse_ratio
+        self.sparse_set_size = config.sparse_set_size
 
         if config.act_func == 'relu':
             activation = tf.nn.relu
@@ -78,11 +79,17 @@ class FC_model(object):
 
     def train(self, data_dir, log_dir, model_path, summary_path):
 
-        train_X, test_X, train_y, test_y, train_fn, test_fn \
-            = read_image_data(data_dir, 'RGB', is_total_perm=self.is_total_perm,
-                              is_pixel_perm=self.is_pixel_perm, is_rand_sparse=self.is_rand_sparse,
-                              is_single_sparse=self.is_single_sparse, is_multi_sparse=self.is_multi_sparse,
-                              sparse_ratio=self.sparse_ratio)
+        # if "perm" is false, the two "perm matrices" are identity matrices
+        train_X, test_X, train_y, test_y, train_fn, test_fn, total_perm_mat, pixel_perm_mat \
+            = read_image_data(data_dir,
+                              'RGB',
+                              is_total_perm=self.is_total_perm,
+                              is_pixel_perm=self.is_pixel_perm,
+                              is_rand_sparse=self.is_rand_sparse,
+                              is_single_sparse=self.is_single_sparse,
+                              is_multi_sparse=self.is_multi_sparse,
+                              sparse_ratio=self.sparse_ratio,
+                              sparse_set_size=self.sparse_set_size)
 
         # just to pick a few to visualize. image is huge
         to_viz = np.random.choice(range(train_X.shape[0]), self.num_to_viz)
@@ -107,6 +114,9 @@ class FC_model(object):
             train_writer = tf.summary.FileWriter(summary_path + '/train', sess.graph)
             test_writer = tf.summary.FileWriter(summary_path + '/test')
             sess.run(tf.global_variables_initializer())
+
+            total_perm_mat_inv = tf.cast(tf.matrix_inverse(total_perm_mat), tf.float32)
+            pixel_perm_mat_inv = tf.cast(tf.matrix_inverse(pixel_perm_mat), tf.float32)
 
             # train & visualization
             step = 0
@@ -133,21 +143,42 @@ class FC_model(object):
 
                     step += 1
 
+            # viz inputs
+            train_writer.add_summary(input_viz(sess, self.imgs, train_X_to_viz, self.num_to_viz))
+
             # saliency map
             if self.is_saliency:
-                # viz inputs
-                train_writer.add_summary(input_viz(sess, self.imgs, train_X_to_viz, self.num_to_viz))
                 # viz saliency map calculated based on logits
                 train_writer.add_summary(
-                    saliency_map_logits(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
+                    saliency_map_logits(sess,
+                                        self.logits,
+                                        self.imgs,
+                                        train_X_to_viz,
+                                        tf.to_float(total_perm_mat_inv),
+                                        tf.to_float(pixel_perm_mat_inv)),
+                                        self.num_to_viz)
+
                 # viz saliency map calculated based on log(softmax)
                 train_writer.add_summary(
-                    saliency_map_lgsoft(sess, self.logits, self.imgs, train_X_to_viz, self.num_to_viz))
+                    saliency_map_lgsoft(sess,
+                                        self.logits,
+                                        self.imgs,
+                                        train_X_to_viz,
+                                        tf.to_float(total_perm_mat_inv),
+                                        tf.to_float(pixel_perm_mat_inv),
+                                        self.num_to_viz))
 
             if self.is_weights:
                 # viz weights
                 train_writer.add_summary(
-                    viz_weights(sess, self.imgs, self.w_vars, self.h_vars, train_X_to_viz, self.num_to_viz))
+                    viz_weights(sess,
+                                self.imgs,
+                                self.w_vars,
+                                self.h_vars,
+                                train_X_to_viz,
+                                tf.to_float(total_perm_mat_inv),
+                                tf.to_float(pixel_perm_mat_inv),
+                                self.num_to_viz))
 
             # save model
             save_path = saver.save(sess, os.path.join(model_path, "model.ckpt"), global_step=step)

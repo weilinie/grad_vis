@@ -60,8 +60,11 @@ parser.add_argument('-is_single_sparse', '--is_single_sparse', type=str2bool, de
                     help='specify if sparsing images with a single pattern for each class')
 parser.add_argument('-is_multi_sparse', '--is_multi_sparse', type=str2bool, default=False,
                     help='specify if sparsing images with several different patterns for each class')
-parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.6,
+parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.0,
                     help='specify the sparse ratio')
+parser.add_argument('-sparse_set_size', '--sparse_set_size', type=int, default=0,
+                    help='specify the sparse set size')
+
 
 # other params
 parser.add_argument('-gpus', '--gpus', type=str, default='7',
