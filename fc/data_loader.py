@@ -16,8 +16,8 @@ def to_one_hot(label):
 def from_one_hot(one_hot):
     return np.argmax(one_hot, axis=1)
 
-def sparse_pattern_generator(input_size, sparse_ratio, num_pixels, num_ch):
 
+def sparse_pattern_generator(input_size, sparse_ratio, num_pixels, num_ch):
     id = np.array([0 if i < (int(input_size * sparse_ratio) / num_ch) * num_ch else 1 for i in range(input_size)])
     reshaped = np.reshape(id, (num_pixels, 3))
     shuffled = np.random.permutation(reshaped)
@@ -28,8 +28,7 @@ def sparse_pattern_generator(input_size, sparse_ratio, num_pixels, num_ch):
 
 def preprocessing(X, y, is_total_perm=False, is_pixel_perm=False, is_rand_sparse=False,
                   is_single_sparse=False, is_multi_sparse=False, sparse_ratio=0.0,
-                  sparse_set_size=0, total_perm_mat=0, pixel_perm_mat=0):
-
+                  sparse_set_size=0, total_perm_mat=None, pixel_perm_mat=None):
     num_ch = 3
     input_size = X.shape[1]
     num_pixels = input_size / num_ch
@@ -49,7 +48,7 @@ def preprocessing(X, y, is_total_perm=False, is_pixel_perm=False, is_rand_sparse
     # randomly sparse each image differently
     elif is_rand_sparse:
         print('Random sparse ... ')
-        for i in range(X.shape[0]): # for each image
+        for i in range(X.shape[0]):  # for each image
             sparse_pattern = sparse_pattern_generator(input_size, sparse_ratio, num_pixels, num_ch)
             X[i] = np.multiply(X[i], sparse_pattern)
 
@@ -57,7 +56,7 @@ def preprocessing(X, y, is_total_perm=False, is_pixel_perm=False, is_rand_sparse
     elif is_single_sparse:
         print('Single sparse ... ')
         sparse_pattern = sparse_pattern_generator(input_size, sparse_ratio, num_pixels, num_ch)
-        for i in range(X.shape[0]): # for each image
+        for i in range(X.shape[0]):  # for each image
             X[i] = np.multiply(X[i], sparse_pattern)
 
     # randomly sparse each image "differently"
@@ -69,14 +68,14 @@ def preprocessing(X, y, is_total_perm=False, is_pixel_perm=False, is_rand_sparse
         sparse_set1 = [sparse_pattern_generator(input_size, sparse_ratio, num_pixels, num_ch)
                        for i in range(sparse_set_size)]
         sparse_set2 = [sparse_pattern_generator(input_size, sparse_ratio, num_pixels, num_ch)
-                        for i in range(sparse_set_size)]
+                       for i in range(sparse_set_size)]
 
-        for i in range(X.shape[0]): # for each image
+        for i in range(X.shape[0]):  # for each image
             idx = np.random.choice(sparse_set_size)
             if y[i] == 0:
                 X[i] = np.multiply(X[i], sparse_set1[idx])
             else:
-                X[i] == np.multiply(X[i], sparse_set2[idx])
+                X[i] = np.multiply(X[i], sparse_set2[idx])
 
     return X
 
@@ -121,7 +120,8 @@ def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1, i
                       is_single_sparse, is_multi_sparse, sparse_ratio, sparse_set_size,
                       total_perm_mat, pixel_perm_mat)
 
-    print X.shape
+    print("Shapes of training X: {}, total_per_mat: {}, pixel_perm_mat: {}".
+          format(X.shape, total_perm_mat.shape, pixel_perm_mat.shape))
 
     # Convert into one-hot vectors
     Y_onehot = to_one_hot(Label)
@@ -140,4 +140,4 @@ def read_image_data(image_folder, image_mode, train_test_ratio=0.8, shuffle=1, i
     return X[0:index_cutoff, :], X[index_cutoff:, :], \
            Y_onehot[0:index_cutoff, :], Y_onehot[index_cutoff:, :], \
            fns[0:index_cutoff], fns[index_cutoff:], \
-            total_perm_mat, pixel_perm_mat
+           total_perm_mat.transpose(), pixel_perm_mat.transpose()

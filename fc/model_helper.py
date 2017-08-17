@@ -4,7 +4,6 @@ from utils import normalize_contrast
 
 def forwardprop(X, w_vars, b_vars, activation, name='Forwardprop'):
     with tf.name_scope(name):
-
         num_layers = len(w_vars) - 1
 
         h_before = tf.matmul(X, w_vars[0]) + b_vars[0]
@@ -179,8 +178,8 @@ def eval_diff(X, y, w_vars, w_vars_init, b_vars, b_vars_zero, activation, name='
             tf.summary.scalar('accu/diff_accu_exsoft', diff_exsoft_accuracy)
 
 
-def saliency_map_logits(sess, logits, X, images, total_perm_inv, pixel_perm_inv, num_to_viz=5):
-
+def saliency_map_logits(sess, logits, X, images, total_perm_mat_inv_tf, total_perm_mat_inv,
+                        pixel_perm_mat_inv_tf, pixel_perm_mat_inv, num_to_viz=5, is_viz_perm_inv=True):
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
@@ -190,19 +189,23 @@ def saliency_map_logits(sess, logits, X, images, total_perm_inv, pixel_perm_inv,
     # the saliency map is calculated based on logits
 
     max_logits = tf.reduce_max(logits, axis=1)
-    saliencies = tf.gradients(max_logits, X)
-    saliencies_permback = tf.matmul(tf.matmul(saliencies, total_perm_inv), pixel_perm_inv)
+    saliencies = tf.gradients(max_logits, X)[0]
+    if is_viz_perm_inv:
+        saliencies = tf.matmul(tf.matmul(saliencies, total_perm_mat_inv_tf), pixel_perm_mat_inv_tf)
 
-    saliency_maps = tf.reshape(saliencies_permback, [-1, 64, 64, 3])
+    saliency_maps = tf.reshape(saliencies, [-1, 64, 64, 3])
     saliency_maps_abs = tf.abs(saliency_maps)
 
     summary_Op1 = tf.summary.image('Saliency_logits', saliency_maps, max_outputs=num_to_viz)
     summary_Op2 = tf.summary.image('Saliency_logits_abs', saliency_maps_abs, max_outputs=num_to_viz)
 
-    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images})
+    feed_dict = {X: images, total_perm_mat_inv_tf: total_perm_mat_inv,
+                     pixel_perm_mat_inv_tf: pixel_perm_mat_inv}
+    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict=feed_dict)
 
-def saliency_map_lgsoft(sess, logits, X, images, total_perm_inv, pixel_perm_inv, num_to_viz=5):
 
+def saliency_map_lgsoft(sess, logits, X, images, total_perm_mat_inv_tf, total_perm_mat_inv,
+                        pixel_perm_mat_inv_tf, pixel_perm_mat_inv, num_to_viz=5, is_viz_perm_inv=True):
     # this is an evaluation block
     # we pass in
     # 1. sess: the model with trained weights
@@ -212,19 +215,23 @@ def saliency_map_lgsoft(sess, logits, X, images, total_perm_inv, pixel_perm_inv,
     # the saliency map is calculated based on softmax
 
     max_soft = tf.reduce_max(tf.nn.softmax(logits), axis=1)
-    saliencies = tf.gradients(tf.log(max_soft), X)
-    saliencies_permback = tf.matmul(tf.matmul(saliencies, total_perm_inv), pixel_perm_inv)
+    saliencies = tf.gradients(tf.log(max_soft), X)[0]
+    if is_viz_perm_inv:
+        saliencies = tf.matmul(tf.matmul(saliencies, total_perm_mat_inv_tf), pixel_perm_mat_inv_tf)
 
-    saliency_maps = tf.reshape(saliencies_permback, [-1, 64, 64, 3])
+    saliency_maps = tf.reshape(saliencies, [-1, 64, 64, 3])
     saliency_maps_abs = tf.abs(saliency_maps)
 
     summary_Op1 = tf.summary.image('Saliency_lgsoft', saliency_maps, max_outputs=num_to_viz)
     summary_Op2 = tf.summary.image('Saliency_lgsoft_abs', saliency_maps_abs, max_outputs=num_to_viz)
 
-    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict={X: images})
+    feed_dict = {X: images, total_perm_mat_inv_tf: total_perm_mat_inv,
+                 pixel_perm_mat_inv_tf: pixel_perm_mat_inv}
+    return sess.run(tf.summary.merge([summary_Op1, summary_Op2]), feed_dict=feed_dict)
 
-def viz_weights(sess, X, w_vars, h_vars, images, total_perm_inv, pixel_perm_inv, num_to_viz=5):
 
+def viz_weights(sess, X, w_vars, h_vars, images, total_perm_mat_inv_tf, total_perm_mat_inv,
+                        pixel_perm_mat_inv_tf, pixel_perm_mat_inv, num_to_viz=5, is_viz_perm_inv=True):
     # this is an evaluation block
     # no matter how many layers we have, we will always multi them together and viz
     # the num of viz pictures equal to the number of classes
@@ -232,14 +239,15 @@ def viz_weights(sess, X, w_vars, h_vars, images, total_perm_inv, pixel_perm_inv,
     multi = w_vars[0]
     multi_results = [multi]
     for i in range(len(w_vars) - 1):
-        multi = tf.matmul(multi, w_vars[i+1])
+        multi = tf.matmul(multi, w_vars[i + 1])
         multi_results += [multi]
 
     summary_Ops = []
     for i in range(len(multi_results)):
         trans = tf.transpose(multi_results[i])
-        trans_permback = tf.matmul(tf.matmul(trans, total_perm_inv), pixel_perm_inv)
-        pics = tf.reshape(trans_permback, [-1, 64, 64, 3])
+        if is_viz_perm_inv:
+            trans = tf.matmul(tf.matmul(trans, total_perm_mat_inv_tf), pixel_perm_mat_inv_tf)
+        pics = tf.reshape(trans, [-1, 64, 64, 3])
         summary_Ops += [tf.summary.image('selected{}_multi_weights_upto_layer{}'.
                                          format(num_to_viz, i), pics, max_outputs=num_to_viz)]
 
@@ -247,18 +255,21 @@ def viz_weights(sess, X, w_vars, h_vars, images, total_perm_inv, pixel_perm_inv,
 
     # weights multi with masking matrices in between
 
-    for i in range(num_to_viz): # loop the viz set, for each input image
+    for i in range(num_to_viz):  # loop the viz set, for each input image
         result = w_vars[0]
-        for j in range(len(w_vars) - 1): # loop the layers, for each layer
+        for j in range(len(w_vars) - 1):  # loop the layers, for each layer
             masking = tf.diag(tf.sign(h_vars[j][i]))
             temp = tf.matmul(result, masking)
-            result = tf.matmul(temp, w_vars[j+1])
+            result = tf.matmul(temp, w_vars[j + 1])
         trans = tf.transpose(result)
-        trans_permback = tf.matmul(tf.matmul(trans, total_perm_inv), pixel_perm_inv)
-        pics = tf.reshape(trans_permback, [-1, 64, 64, 3])
+        if is_viz_perm_inv:
+            trans = tf.matmul(tf.matmul(trans, total_perm_mat_inv_tf), pixel_perm_mat_inv_tf)
+        pics = tf.reshape(trans, [-1, 64, 64, 3])
         summary_Ops += [tf.summary.image('viz_img{}_masking_multi'.format(i), pics)]
 
-    return sess.run(tf.summary.merge(summary_Ops), feed_dict={X: images})
+    feed_dict = {X: images, total_perm_mat_inv_tf: total_perm_mat_inv,
+                 pixel_perm_mat_inv_tf: pixel_perm_mat_inv}
+    return sess.run(tf.summary.merge(summary_Ops), feed_dict=feed_dict)
 
 
 def input_viz(sess, X, images, num_to_viz=5):
