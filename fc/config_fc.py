@@ -60,8 +60,11 @@ parser.add_argument('-is_single_sparse', '--is_single_sparse', type=str2bool, de
                     help='specify if sparsing images with a single pattern for each class')
 parser.add_argument('-is_multi_sparse', '--is_multi_sparse', type=str2bool, default=False,
                     help='specify if sparsing images with several different patterns for each class')
-parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.6,
+parser.add_argument('-sparse_ratio', '--sparse_ratio', type=float, default=0.0,
                     help='specify the sparse ratio')
+parser.add_argument('-sparse_set_size', '--sparse_set_size', type=int, default=0,
+                    help='specify the sparse set size')
+
 
 # other params
 parser.add_argument('-gpus', '--gpus', type=str, default='7',
@@ -70,6 +73,8 @@ parser.add_argument('-rs', '--rs', type=int, default=42,
                     help='specify the random seed for the training')
 parser.add_argument('-nviz', '--num_to_viz', type=int, default=3,
                     help='specify the # of images to viz')
+parser.add_argument('-is_viz_perm_inv', '--is_viz_perm_inv', type=str2bool, default=False,
+                    help='specify if visualizing weights by multiplying inverse permutation matrix')
 parser.add_argument('-spath', '--spath', type=str, default='summary',
                     help='specify the summary path')
 
