@@ -38,7 +38,7 @@ def grad_cam(conv_output, conv_grad):
     return cam
 
 
-def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, idx=0):
+def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn, prob):
     cam = grad_cam(conv_output, conv_grad)
 
     sal_map -= np.min(sal_map)
@@ -68,6 +68,10 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, id
     ax.set_title('Grad-Cam', fontsize=8)
     ax.tick_params(axis='both', which='major',  labelsize=6)
 
+    pred = (np.argsort(prob)[::-1])
+    ax.set_xlabel('input: {}, pred_class: {} ({:.2f})'.
+                  format(fn, class_names[pred[0]], prob[pred[0]]), fontsize=8)
+
     ax = fig.add_subplot(gs[0, 2])
     ax.imshow(sal_map)
     ax.set_title(sal_map_type, fontsize=8)
@@ -81,5 +85,5 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, id
     # saved results path
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    print('Saving figure[{}]...'.format(idx))
-    plt.savefig(os.path.join(save_dir, "out_{}.png".format(idx)))
+    print('Saving {}_cam_{}.png'.format(sal_map_type, fn))
+    plt.savefig(os.path.join(save_dir, "{}_cam_{}.png".format(sal_map_type, fn)))
