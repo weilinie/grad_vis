@@ -73,6 +73,8 @@ parser.add_argument('-rs', '--rs', type=int, default=42,
                     help='specify the random seed for the training')
 parser.add_argument('-nviz', '--num_to_viz', type=int, default=3,
                     help='specify the # of images to viz')
+parser.add_argument('-is_viz_perm_inv', '--is_viz_perm_inv', type=str2bool, default=False,
+                    help='specify if visualizing weights by multiplying inverse permutation matrix')
 parser.add_argument('-spath', '--spath', type=str, default='summary',
                     help='specify the summary path')
 

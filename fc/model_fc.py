@@ -41,6 +41,8 @@ class FC_model(object):
         self.sparse_ratio = config.sparse_ratio
         self.sparse_set_size = config.sparse_set_size
 
+        self.is_viz_perm_inv = config.is_viz_perm_inv
+
         if config.act_func == 'relu':
             activation = tf.nn.relu
         elif config.act_func == 'tanh':
@@ -80,7 +82,7 @@ class FC_model(object):
     def train(self, data_dir, log_dir, model_path, summary_path):
 
         # if "perm" is false, the two "perm matrices" are identity matrices
-        train_X, test_X, train_y, test_y, train_fn, test_fn, total_perm_mat, pixel_perm_mat \
+        train_X, test_X, train_y, test_y, train_fn, test_fn, total_perm_mat_inv, pixel_perm_mat_inv \
             = read_image_data(data_dir,
                               'RGB',
                               is_total_perm=self.is_total_perm,
@@ -103,6 +105,11 @@ class FC_model(object):
                                                   format(datetime.now().strftime("%m%d_%H%M%S"))),
                             level=logging.DEBUG)
 
+        # Add two placeholders to indicate the inverse perm matrices
+        assert train_X.ndim == 2, "Training images are not flattened!"
+        total_perm_mat_inv_tf = tf.placeholder(tf.float32, shape=[train_X.shape[1], train_X.shape[1]])
+        pixel_perm_mat_inv_tf = tf.placeholder(tf.float32, shape=[train_X.shape[1], train_X.shape[1]])
+
         # Saver
         saver = tf.train.Saver()
 
@@ -114,9 +121,6 @@ class FC_model(object):
             train_writer = tf.summary.FileWriter(summary_path + '/train', sess.graph)
             test_writer = tf.summary.FileWriter(summary_path + '/test')
             sess.run(tf.global_variables_initializer())
-
-            total_perm_mat_inv = tf.cast(tf.matrix_inverse(total_perm_mat), tf.float32)
-            pixel_perm_mat_inv = tf.cast(tf.matrix_inverse(pixel_perm_mat), tf.float32)
 
             # train & visualization
             step = 0
@@ -152,21 +156,19 @@ class FC_model(object):
                 train_writer.add_summary(
                     saliency_map_logits(sess,
                                         self.logits,
-                                        self.imgs,
-                                        train_X_to_viz,
-                                        tf.to_float(total_perm_mat_inv),
-                                        tf.to_float(pixel_perm_mat_inv)),
-                                        self.num_to_viz)
+                                        self.imgs, train_X_to_viz,
+                                        total_perm_mat_inv_tf, total_perm_mat_inv,
+                                        pixel_perm_mat_inv_tf, pixel_perm_mat_inv,
+                                        self.num_to_viz, self.is_viz_perm_inv))
 
                 # viz saliency map calculated based on log(softmax)
                 train_writer.add_summary(
                     saliency_map_lgsoft(sess,
                                         self.logits,
-                                        self.imgs,
-                                        train_X_to_viz,
-                                        tf.to_float(total_perm_mat_inv),
-                                        tf.to_float(pixel_perm_mat_inv),
-                                        self.num_to_viz))
+                                        self.imgs, train_X_to_viz,
+                                        total_perm_mat_inv_tf, total_perm_mat_inv,
+                                        pixel_perm_mat_inv_tf, pixel_perm_mat_inv,
+                                        self.num_to_viz, self.is_viz_perm_inv))
 
             if self.is_weights:
                 # viz weights
@@ -176,9 +178,9 @@ class FC_model(object):
                                 self.w_vars,
                                 self.h_vars,
                                 train_X_to_viz,
-                                tf.to_float(total_perm_mat_inv),
-                                tf.to_float(pixel_perm_mat_inv),
-                                self.num_to_viz))
+                                total_perm_mat_inv_tf, total_perm_mat_inv,
+                                pixel_perm_mat_inv_tf, pixel_perm_mat_inv,
+                                self.num_to_viz, self.is_viz_perm_inv))
 
             # save model
             save_path = saver.save(sess, os.path.join(model_path, "model.ckpt"), global_step=step)
