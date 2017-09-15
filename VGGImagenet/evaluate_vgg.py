@@ -35,7 +35,27 @@ def main():
 
     # TODO: extend this part to a list
     image_name = 'laska'
-    layer_name = 'pool3'
+    layers = ['conv1_1',
+              'conv1_2',
+              'pool1',
+              'conv2_1',
+              'conv2_2',
+              'pool2',
+              'conv3_1',
+              'conv3_2',
+              'conv3_3',
+              'pool3',
+              'conv4_1',
+              'conv4_2',
+              'conv4_3',
+              'pool4',
+              'conv5_1',
+              'conv5_2',
+              'conv5_3',
+              'pool5',
+              'fc1',
+              'fc2',
+              'fc3']
 
     fns = []
     image_list = []
@@ -104,15 +124,18 @@ def main():
     # first: pick one layer
     # second: pick num_to_viz neurons from this layer
     # third: calculate the saliency map w.r.t self.imgs for each picked neuron
-    num_to_viz = 5
-    saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.imgs, num_to_viz)
-    # shape = (num_to_viz, num_input_images, 224, 224, 3)
-    saliencies_val = sess.run(saliencies, feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
-    # shape = (num_input_images, num_to_viz, 224, 224, 3)
-    saliencies_val_trans = np.transpose(saliencies_val, (1, 0, 2, 3, 4))
+    len = 4
+    wid = 4
+    num_to_viz = len * wid
+    for layer_name in layers:
+        saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.imgs, num_to_viz)
+        # shape = (num_to_viz, num_input_images, 224, 224, 3)
+        saliencies_val = sess.run(saliencies, feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
+        # shape = (num_input_images, num_to_viz, 224, 224, 3)
+        saliencies_val_trans = np.transpose(saliencies_val, (1, 0, 2, 3, 4))
 
-    for idx in range(batch_size):
-        visualize_yang(batch_img[idx], saliencies_val_trans[idx], layer_name, sal_map_type.split('_')[0], save_dir, fns[idx])
+        for idx in range(batch_size):
+            visualize_yang(batch_img[idx], len, wid, saliencies_val_trans[idx], layer_name, sal_map_type.split('_')[0], save_dir, fns[idx])
 
 
 
