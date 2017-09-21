@@ -29,39 +29,41 @@ def super_saliency(tensor, inputs, num_to_viz):
 
 def main():
 
+    plain_init = True
     sal_map_type = "GuidedBackprop_maxlogit"
     data_dir = "data_imagenet"
-    save_dir = "results"
+    save_dir = "results/09212017/plain_init_GBP/"
 
     # TODO: extend this part to a list
-    image_name = 'laska'
-    layers = ['conv1_1',
-              'conv1_2',
-              'pool1',
-              'conv2_1',
-              'conv2_2',
-              'pool2',
-              'conv3_1',
-              'conv3_2',
-              'conv3_3',
-              'pool3',
-              'conv4_1',
-              'conv4_2',
-              'conv4_3',
-              'pool4',
-              'conv5_1',
-              'conv5_2',
-              'conv5_3',
-              'pool5',
-              'fc1',
-              'fc2',
+    image_name = 'tabby'
+    layers = [
+              # 'conv1_1',
+              # 'conv1_2',
+              # 'pool1',
+              # 'conv2_1',
+              # 'conv2_2',
+              # 'pool2',
+              # 'conv3_1',
+              # 'conv3_2',
+              # 'conv3_3',
+              # 'pool3',
+              # 'conv4_1',
+              # 'conv4_2',
+              # 'conv4_3',
+              # 'pool4',
+              # 'conv5_1',
+              # 'conv5_2',
+              # 'conv5_3',
+              # 'pool5',
+              # 'fc1',
+              # 'fc2',
               'fc3']
 
     fns = []
     image_list = []
     label_list = []
     # load in the original image and its adversarial examples
-    for image_path in glob.glob(os.path.join(data_dir, '{}*'.format(image_name))):
+    for image_path in glob.glob(os.path.join(data_dir, '{}.png'.format(image_name))):
         fns.append(os.path.basename(image_path).split('.')[0])
         image = imread(image_path, mode='RGB')
         image = imresize(image, (224, 224)).astype(np.float32)
@@ -82,10 +84,16 @@ def main():
     if sal_map_type.split('_')[0] == 'GuidedBackprop':
         eval_graph = tf.get_default_graph()
         with eval_graph.gradient_override_map({'Relu': 'GuidedRelu'}):
-            # load the vgg graph with the pre-trained weights
-            vgg = Vgg16('vgg16_weights.npz', sess)
+            if plain_init:
+                # load the vgg graph
+                # plain_init = true -> load the graph with random weights
+                # plain_init = false -> load the graph with pre-trained weights
+                vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
     elif sal_map_type.split('_')[0] == 'PlainSaliency':
-        vgg = Vgg16('vgg16_weights.npz', sess)
+        # load the vgg graph
+        # plain_init = true -> load the graph with random weights
+        # plain_init = false -> load the graph with pre-trained weights
+        vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
     else:
         raise Exception("Unknown saliency_map type - 1")
 
@@ -136,9 +144,6 @@ def main():
 
         for idx in range(batch_size):
             visualize_yang(batch_img[idx], len, wid, saliencies_val_trans[idx], layer_name, sal_map_type.split('_')[0], save_dir, fns[idx])
-
-
-
 
 
 if __name__ == '__main__':

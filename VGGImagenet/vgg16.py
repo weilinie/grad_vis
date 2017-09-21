@@ -15,7 +15,7 @@ import tensorflow as tf
 
 class Vgg16(object):
 
-    def __init__(self, weights=None, sess=None):
+    def __init__(self, weights=None, plain_init=None, sess=None):
 
         self.layers_dic = {}
         self.parameters = []
@@ -37,8 +37,14 @@ class Vgg16(object):
         self.cost = tf.reduce_sum((self.probs - self.labels) ** 2)
         self.maxlogit = tf.reduce_max(self.fc3l, axis=1)
 
-        if weights is not None and sess is not None:
+        if plain_init and sess is not None:
+            self.init(sess)
+
+        elif weights is not None and sess is not None:
             self.load_weights(weights, sess)
+
+        else:
+            print("vgg16 initialization failed ... ")
 
 
 
@@ -300,3 +306,6 @@ class Vgg16(object):
         for i, k in enumerate(keys):
             print i, k, np.shape(weights[k])
             sess.run(self.parameters[i].assign(weights[k]))
+
+    def init(self, sess):
+        sess.run(tf.global_variables_initializer())
