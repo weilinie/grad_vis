@@ -95,29 +95,23 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
     print('Saving {}_cam_{}.png'.format(sal_map_type, fn))
     plt.savefig(os.path.join(save_dir, "{}_cam_{}.png".format(sal_map_type, fn)))
 
-def visualize_yang(batch_img, len, wid, neuron_saliencies, layer_name, sal_type, save_dir, fn):
+def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_type, save_dir, fn):
 
-    num_neurons = len * wid
+    for idx in range(num_neurons):
 
-    fig = plt.figure()
+        dir = save_dir + '/{}'.format(layer_name)
 
-    gs = gridspec.GridSpec(wid, len, wspace=0.2, hspace=0.2)
+        sal_map = neuron_saliencies[idx]
+        sal_map -= np.min(sal_map)
+        sal_map /= sal_map.max()
 
-    for idx_wid in range(wid):
-        for idx_len in range(len):
-            idx = idx_wid * wid + idx_len
-            sal_map = neuron_saliencies[idx]
-            sal_map -= np.min(sal_map)
-            sal_map /= sal_map.max()
-            ax = fig.add_subplot(gs[idx_wid, idx_len])
-            ax.imshow(sal_map)
-            ax.tick_params(axis='both', which='major', labelsize=6)
+        plt.imshow(sal_map)
 
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    plt.savefig(os.path.join(save_dir,
-                             "layer_name={}_num_to_viz={}_sal_type={}_image_info={}.png"
-                             .format(layer_name, num_neurons, sal_type, fn)))
-    plt.close(fig)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        plt.savefig(os.path.join(dir,
+                                 "layer_name={}_idx={}_sal_type={}_image_info={}.png"
+                                 .format(layer_name, idx, sal_type, fn)))
+        plt.close()
 
 
