@@ -8,9 +8,6 @@ from tensorflow.python.ops import gen_nn_ops
 
 from vgg16 import vgg16
 
-"""
-This viz technique is deprecated!
-"""
 
 @ops.RegisterGradient("GuidedRelu")
 def _GuidedReluGrad(op, grad):
@@ -72,5 +69,5 @@ def main():
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '7'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
     main()

@@ -37,10 +37,16 @@ def grad_cam(conv_output, conv_grad):
     cam = resize(cam, (224, 224))
     return cam
 
+def sal_pool_normalization(sal_pool):
+        sal_pool -= np.min(sal_pool)
+        sal_pool /= sal_pool.max()
+        print(sal_pool.shape)
 
 def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn, prob):
+
     cam = grad_cam(conv_output, conv_grad)
 
+    # normalizations
     sal_map -= np.min(sal_map)
     sal_map /= sal_map.max()
 
@@ -56,6 +62,7 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
     ))
 
     fig = plt.figure()
+
     gs = gridspec.GridSpec(1, 4, wspace=0.2, hspace=0.2)
 
     ax = fig.add_subplot(gs[0, 0])
@@ -87,3 +94,24 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
         os.makedirs(save_dir)
     print('Saving {}_cam_{}.png'.format(sal_map_type, fn))
     plt.savefig(os.path.join(save_dir, "{}_cam_{}.png".format(sal_map_type, fn)))
+
+def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_type, save_dir, fn):
+
+    for idx in range(num_neurons):
+
+        dir = save_dir + '/{}'.format(layer_name)
+
+        sal_map = neuron_saliencies[idx]
+        sal_map -= np.min(sal_map)
+        sal_map /= sal_map.max()
+
+        plt.imshow(sal_map)
+
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        plt.savefig(os.path.join(dir,
+                                 "layer_name={}_idx={}_sal_type={}_image_info={}.png"
+                                 .format(layer_name, idx, sal_type, fn)))
+        plt.close()
+
+
