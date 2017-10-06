@@ -190,20 +190,29 @@ def main():
 
     ori_image_idx = np.where(batch_fns == image_name)
     fc2_ahats = np.array(fc2_ahats)
+    
     for idx, ahat in enumerate(fc2_ahats):
         if idx == ori_image_idx:
             continue
         else:
             print('The image name : {}'.format(batch_fns[idx]))
-            temp = fc2_ahats[ori_image_idx] - ahat
-            stay =
+
+            plus = fc2_ahats[ori_image_idx] + ahat
+            stay = np.where(plus == 2)
+
+            subtract = fc2_ahats[ori_image_idx] - ahat
+            delete = np.where(subtract == 1)
+
+            add = np.where(subtract == -1)
+
             print('Comparing to the original image,'
                   ' we have {} columns stay the same,'
                   ' {} columns deleted,'
                   ' {} columns added'.format(
-                stay,
-                delete,
-                add))
+                len(stay),
+                len(delete),
+                len(add))
+            )
 
 
 
