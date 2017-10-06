@@ -71,7 +71,7 @@ def main():
     # load in the original image and its adversarial examples
     for image_path in glob.glob(os.path.join(data_dir, '{}*.png'.format(image_name))):
         file_name = os.path.basename(image_path).split('.')[0]
-        # print('File name : {}').format(file_name)
+        print('File name : {}').format(file_name)
         fns.append(file_name)
         image = imread(image_path, mode='RGB')
         image = imresize(image, (224, 224)).astype(np.float32)
@@ -81,7 +81,7 @@ def main():
 
     batch_img = np.array(image_list)
     batch_label = np.array(label_list)
-    batch_fns = np.array(fns)
+    batch_fns = fns
 
     batch_size = batch_img.shape[0]
 
@@ -188,30 +188,32 @@ def main():
             ])
         )
 
-    ori_image_idx = np.where(batch_fns == image_name)
+    print(batch_fns)
+    ori_image_idx = batch_fns.index(image_name)
+    print(ori_image_idx)
     fc2_ahats = np.array(fc2_ahats)
-    
+
     for idx, ahat in enumerate(fc2_ahats):
         if idx == ori_image_idx:
-            continue
+            print('The original image has {} columns'.format(np.sum(ahat)))
         else:
             print('The image name : {}'.format(batch_fns[idx]))
 
             plus = fc2_ahats[ori_image_idx] + ahat
-            stay = np.where(plus == 2)
+            stay = np.where(plus == 2.)
 
             subtract = fc2_ahats[ori_image_idx] - ahat
-            delete = np.where(subtract == 1)
+            delete = np.where(subtract == 1.)
 
-            add = np.where(subtract == -1)
+            add = np.where(subtract == -1.)
 
             print('Comparing to the original image,'
                   ' we have {} columns stay the same,'
                   ' {} columns deleted,'
                   ' {} columns added'.format(
-                len(stay),
-                len(delete),
-                len(add))
+                len(stay[0]),
+                len(delete[0]),
+                len(add[0]))
             )
 
 
