@@ -11,9 +11,11 @@ from utils import print_prob, visualize, visualize_yang
 
 image_dict = {'tabby': 281, 'laska': 356, 'mastiff': 243}
 
+
 @ops.RegisterGradient("GuidedRelu")
 def _GuidedReluGrad(op, grad):
     return tf.where(0. < grad, gen_nn_ops._relu_grad(grad, op.outputs[0]), tf.zeros(tf.shape(grad)))
+
 
 @ops.RegisterGradient("NGuidedRelu")
 def _GuidedReluGrad(op, grad):
@@ -110,43 +112,44 @@ def main():
     else:
         raise Exception("Unknown saliency_map type - 1")
 
+    # --------------------------------------------------------------------------
+    # Visualize grad-camp and its adversarial examples
+    # --------------------------------------------------------------------------
+    # Get last convolutional layer gradient for generating gradCAM visualization
+    target_conv_layer = vgg.pool5
+    if sal_map_type.split('_')[1] == "cost":
+        conv_grad = tf.gradients(vgg.cost, target_conv_layer)[0]
+    elif sal_map_type.split('_')[1] == 'maxlogit':
+        conv_grad = tf.gradients(vgg.maxlogit, target_conv_layer)[0]
+    else:
+        raise Exception("Unknown saliency_map type - 2")
+    # normalization
+    conv_grad_norm = tf.div(conv_grad, tf.norm(conv_grad) + tf.constant(1e-5))
 
-    # # Get last convolutional layer gradient for generating gradCAM visualization
-    # target_conv_layer = vgg.pool5
-    # if sal_map_type.split('_')[1] == "cost":
-    #     conv_grad = tf.gradients(vgg.cost, target_conv_layer)[0]
-    # elif sal_map_type.split('_')[1] == 'maxlogit':
-    #     conv_grad = tf.gradients(vgg.maxlogit, target_conv_layer)[0]
-    # else:
-    #     raise Exception("Unknown saliency_map type - 2")
-    # # normalization
-    # conv_grad_norm = tf.div(conv_grad, tf.norm(conv_grad) + tf.constant(1e-5))
-    #
-    # # saliency gradient to input layer
-    # if sal_map_type.split('_')[1] == "cost":
-    #     sal_map = tf.gradients(vgg.cost, vgg.imgs)[0]
-    # elif sal_map_type.split('_')[1] == 'maxlogit':
-    #     sal_map = tf.gradients(vgg.maxlogit, vgg.imgs)[0]
-    # else:
-    #     raise Exception("Unknown saliency_map type - 2")
-    #
-    # # predict
-    # probs = sess.run(vgg.probs, feed_dict={vgg.images: batch_img})
-    #
-    # # sal_map and conv_grad
-    # sal_map_val, target_conv_layer_val, conv_grad_norm_val =\
-    #     sess.run([sal_map, target_conv_layer, conv_grad_norm],
-    #              feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
-    #
-    # for idx in range(batch_size):
-    #     print_prob(probs[idx])
-    #     visualize(batch_img[idx], target_conv_layer_val[idx], conv_grad_norm_val[idx], sal_map_val[idx],
-    #               sal_map_type, save_dir, fns[idx], probs[idx])
+    # saliency gradient to input layer
+    if sal_map_type.split('_')[1] == "cost":
+        sal_map = tf.gradients(vgg.cost, vgg.imgs)[0]
+    elif sal_map_type.split('_')[1] == 'maxlogit':
+        sal_map = tf.gradients(vgg.maxlogit, vgg.imgs)[0]
+    else:
+        raise Exception("Unknown saliency_map type - 2")
 
+    # predict
+    probs = sess.run(vgg.probs, feed_dict={vgg.images: batch_img})
 
-    # first: pick one layer
-    # second: pick num_to_viz neurons from this layer
-    # third: calculate the saliency map w.r.t self.imgs for each picked neuron
+    # sal_map and conv_grad
+    sal_map_val, target_conv_layer_val, conv_grad_norm_val =\
+        sess.run([sal_map, target_conv_layer, conv_grad_norm],
+                 feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
+
+    for idx in range(batch_size):
+        print_prob(probs[idx])
+        visualize(batch_img[idx], target_conv_layer_val[idx], conv_grad_norm_val[idx], sal_map_val[idx],
+                  sal_map_type, save_dir, fns[idx], probs[idx])
+
+    # ---------------------------------------------------------------------
+    # Layer-by-layer visualizations
+    # ---------------------------------------------------------------------
     num_to_viz = 20
     for layer_name in layers:
 
@@ -157,7 +160,8 @@ def main():
         saliencies_val_trans = np.transpose(saliencies_val, (1, 0, 2, 3, 4))
 
         for idx in range(batch_size):
-            visualize_yang(batch_img[idx], num_to_viz, saliencies_val_trans[idx], layer_name, sal_map_type.split('_')[0], save_dir, fns[idx])
+            visualize_yang(batch_img[idx], num_to_viz, saliencies_val_trans[idx], layer_name,
+                           sal_map_type.split('_')[0], save_dir, fns[idx])
 
 
 

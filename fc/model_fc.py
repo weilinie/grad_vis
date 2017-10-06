@@ -185,3 +185,4 @@ class FC_model(object):
             # save model
             save_path = saver.save(sess, os.path.join(model_path, "model.ckpt"), global_step=step)
             print("Model saved in file: %s" % save_path)
+

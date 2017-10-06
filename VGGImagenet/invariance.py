@@ -49,6 +49,7 @@ def compare(layer, image1, image2, sess, pl_holder_X, firing_arg, similarity_arg
 
     return result
 
+
 def main():
 
     folder_name = 'Imagenet_Dogs'
@@ -105,12 +106,7 @@ def main():
     sess = tf.Session()
     vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
 
-    firing_arg = 'ahat' # can be 'plain' or 'ahat'
-    similarity_arg = 'jaccard' # can be 'allclose' or 'jaccard'
-
-    # f = open('log_{}_{}_{}.txt'.format(folder_name, firing_arg, similarity_arg), 'w')
-    # sys.stdout = f
-
+    # firing state for fc1
     firing_states = []
     for image in batch_img: # for each image
         img = np.reshape(image, (1, 224, 224, 3))
@@ -121,6 +117,13 @@ def main():
     firing_states = np.array(firing_states)
     print('Total number of examples : {}'.format(firing_states.shape[0]))
     print('Unique sparse patterns : {}'.format(np.unique(firing_states, axis=0).shape[0]))
+
+
+    # firing_arg = 'ahat'  # can be 'plain' or 'ahat'
+    # similarity_arg = 'jaccard'  # can be 'allclose' or 'jaccard'
+
+    # f = open('log_{}_{}_{}.txt'.format(folder_name, firing_arg, similarity_arg), 'w')
+    # sys.stdout = f
 
     # for i in range(batch_size):
     #     result = []
