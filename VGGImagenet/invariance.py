@@ -2,9 +2,10 @@ from scipy.misc import imread, imresize
 import os, sys
 import tensorflow as tf
 import glob
-from imagenet_classes import class_names
 import numpy as np
-from sklearn.metrics import jaccard_similarity_score
+import matplotlib
+matplotlib.use('Agg')
+from imagenet_classes import class_names
 
 from vgg16 import Vgg16
 from utils import print_prob, visualize, visualize_yang
@@ -53,9 +54,8 @@ def main():
 
     folder_name = 'Imagenet_Dogs'
 
-    plain_init = False
     data_dir = "../data/{}/".format(folder_name)
-    save_dir = "results/10022017"
+    save_dir = "results/10052017/"
 
     layers = [
               'conv1_1',
@@ -99,46 +99,140 @@ def main():
     batch_img = batch_img[sort_indices]
     batch_size = batch_img.shape[0]
 
-    reference_image = batch_img[0]
+    # reference_image = batch_img[0]
 
     # tf session
     sess = tf.Session()
-    vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
+    vgg_trained = Vgg16('vgg16_weights.npz', False, sess)
 
-    firing_arg = 'ahat' # can be 'plain' or 'ahat'
-    similarity_arg = 'jaccard' # can be 'allclose' or 'jaccard'
+    ratio = 0.8
 
-    # f = open('log_{}_{}_{}.txt'.format(folder_name, firing_arg, similarity_arg), 'w')
-    # sys.stdout = f
-
-    firing_states = []
-    for image in batch_img: # for each image
+    firings = []
+    for image in batch_img:
         img = np.reshape(image, (1, 224, 224, 3))
-        # the input for the FC layers
-        # the sparse pattern
-        firing_state = np.sign(sess.run(vgg.layers_dic['fc1'], feed_dict={vgg.imgs: img})).flatten()
-        firing_states += [firing_state]
-    firing_states = np.array(firing_states)
-    print('Total number of examples : {}'.format(firing_states.shape[0]))
-    print('Unique sparse patterns : {}'.format(np.unique(firing_states, axis=0).shape[0]))
+        firings += [sess.run(vgg_trained.layers_dic['fc2'], feed_dict={vgg_trained.imgs: img})]
+    firings = np.array(firings)
+
+    f = open('log_invariance_{}.txt'.format(ratio), 'w')
+    sys.stdout = f
+
+    ahats = np.sign(firings)
+    reduce = np.sum(ahats, axis=0)[0]
+    common_pattern = np.where(reduce >= batch_size * ratio)
+
+    if len(common_pattern) == 0:
+        print('No common pattern!')
+
+    else:
+
+        w_softmax = sess.run(vgg_trained.layers_W_dic['fc3'])
+        w_pick = w_softmax[common_pattern]
+        print('common pattern class : {}'.format(
+            class_names[
+                np.argmax(
+                    np.sum(w_pick, axis=0)
+                )
+            ]
+        ))
+
+        # for w in w_pick:
+        #     print(class_names[np.argmax(w)])
+
+        for idx, ahat in enumerate(ahats):
+            ahat_ori = np.copy(ahat[0])
+
+            ahat_left = ahat[0]
+            ahat_left[common_pattern] = 0
+
+            ahat_common = ahat_ori - ahat_left
+
+            w_not_pick = w_softmax[np.where(ahat_left == 1)]
+            w_pick = w_softmax[np.where(ahat_common == 1)]
+            w_ori = w_softmax[np.where(ahat_ori == 1)]
+
+            print('For iamge {},'
+                  ' the original firings sum to {},'
+                  ' the common firings sum to {},'
+                  ' the rest firings sum to : {}'.format(
+                idx,
+                class_names[
+                    np.argmax(
+                        np.sum(w_ori, axis=0)
+                    )
+                ],
+                class_names[
+                    np.argmax(
+                        np.sum(w_pick, axis=0)
+                    )
+                ],
+                class_names[
+                    np.argmax(
+                        np.sum(w_not_pick, axis=0)
+                    )
+                ])
+            )
+
+
+    # vgg_not_trained = Vgg16('vgg16_weights.npz', True, sess)
+
+    # firing_arg = 'ahat' # can be 'plain' or 'ahat'
+    # similarity_arg = 'jaccard' # can be 'allclose' or 'jaccard'
+
+    # for layer in layers: # for each layer
+    #
+    #     if 'pool' not in layer:
+    #
+    #         w_trained = sess.run(vgg_trained.layers_W_dic[layer])
+    #         w_not_trained = sess.run(vgg_not_trained.layers_W_dic[layer])
+    #         volumn = np.prod(w_trained.shape)
+    #
+    #         Diff = np.linalg.norm(np.subtract(w_trained, w_not_trained)) / volumn
+    #
+    #         print('Layer name = {}, Diff = {}'.format(layer, Diff))
+
+        # firing_states_trained = []
+        # firing_states_diff = []
+        # for image in batch_img: # for each image
+        #
+        #     img = np.reshape(image, (1, 224, 224, 3))
+        #
+        #     firing_state_trained =\
+        #         np.sign(sess.run(vgg_trained.layers_dic[layer], feed_dict={vgg_trained.imgs: img})).flatten()
+        #
+        #     firing_state_not_trained = \
+        #         np.sign(sess.run(vgg_not_trained.layers_dic[layer], feed_dict={vgg_not_trained.imgs: img})).flatten()
+        #
+        #     firing_state_diff = np.abs(np.subtract(firing_state_trained, firing_state_not_trained))
+        #
+        #     firing_states_trained += [firing_state_trained]
+        #     firing_states_diff += [firing_state_diff]
+        #
+        # firing_states_trained = np.array(firing_states_trained)
+        # firing_states_diff = np.array(firing_states_diff)
+        #
+        # print('Layer name : {}'.format(layer))
+        # print('Number of images : {}'.format(firing_states_trained.shape[0]))
+        # print('Unique sparse patterns : {}'.format(np.unique(firing_states_trained, axis=0).shape[0]))
+        # print('Sparse ratio : {}'.format(np.mean(firing_states_trained, axis=1)))
+        # print('Diff : {}'.format(np.mean(firing_states_diff, axis=1)))
 
     # for i in range(batch_size):
     #     result = []
     #     firing_states = []
     #     for layer in layers:
-    #         temp = compare(vgg.layers_dic[layer],
+    #         temp = compare(vgg_trained.layers_dic[layer],
     #                        reference_image, batch_img[i],
-    #                        sess, vgg.imgs,
+    #                        sess, vgg_trained.imgs,
     #                        firing_arg, similarity_arg)
     #         result.append(temp)
     #     print("Image_idx = {}, Invariance = {}".format(i, result))
-    #     probs_val = sess.run(vgg.probs, feed_dict={vgg.imgs: np.reshape(batch_img[i], (1, 224, 224, 3))})
+    #     probs_val = sess.run(vgg_trained.probs, feed_dict={vgg_trained.imgs: np.reshape(batch_img[i], (1, 224, 224, 3))})
     #     print("Predict class : {}".format(class_names[np.argmax(probs_val)]))
 
-    # f.close()
+    f.close()
 
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '7'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
     main()
