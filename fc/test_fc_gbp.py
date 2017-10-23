@@ -57,10 +57,10 @@ def plot_save(img, sal_map, sal_map_type, save_dir, fn, num_layers):
 
 def main(FLAGS):
 
-    # sal_map_type = "GuidedBackprop_maxlogit"
-    sal_map_type = "GuidedBackprop_cost"
+    sal_map_type = "GuidedBackprop_maxlogit"
+    # sal_map_type = "GuidedBackprop_cost"
     data_dir = "../VGGImagenet/data_imagenet"
-    save_dir = "test_gbp_results/10052017"
+    save_dir = "test_gbp_results/10222017"
 
     image_dict = {'tabby': 281, 'laska': 356, 'mastiff': 243}
 

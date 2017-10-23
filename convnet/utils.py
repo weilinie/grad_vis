@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt, gridspec
 from imagenet_classes import class_names
 from skimage.transform import resize
 
+n_input = 64
 
 # returns the top1 string
 def print_prob(prob):
@@ -34,7 +35,7 @@ def grad_cam(conv_output, conv_grad):
     # Passing through ReLU
     cam = np.maximum(cam, 0)
     cam = cam / np.max(cam)  # scale 0 to 1.0
-    cam = resize(cam, (224, 224))
+    cam = resize(cam, (n_input, n_input))
     return cam
 
 def sal_pool_normalization(sal_pool):
@@ -109,7 +110,6 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
     ax3.imshow(img)
     ax3.axis('off')
     plt.savefig(os.path.join(save_dir, "{}.png".format(fn)))
-
 
 def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_type, save_dir, fn):
 

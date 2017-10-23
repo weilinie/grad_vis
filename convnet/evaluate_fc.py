@@ -1,18 +1,16 @@
 from scipy.misc import imread, imresize
 import os
 import numpy as np
+import random
 import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import gen_nn_ops
 import glob
 
-from vgg16 import Vgg16
+from fc import FC
 from utils import print_prob, visualize, visualize_yang
 
 image_dict = {'tabby': 281, 'laska': 356, 'mastiff': 243}
-
-# np.random.seed(1234)
-tf.set_random_seed(1234)
 
 
 @ops.RegisterGradient("GuidedRelu")
@@ -35,14 +33,18 @@ def super_saliency(tensor, inputs, num_to_viz):
 
 def main():
 
-    plain_init = False
-    sal_map_type = "PlainSaliency_randlogit"
-    data_dir = "data_imagenet"
-    save_dir = "results/10232017/trained_vgg"
+    sal_map_type = "GuidedBackprop_maxlogit"
+    # sal_map_type = "PlainSaliency_maxlogit"
+    data_dir = "../VGGImagenet/data_imagenet"
+    save_dir = "results/10222017/fc"
 
     # TODO: extend this part to a list
 
     image_name = 'tabby'
+
+    n_labels = 5
+
+    n_input = 64
 
     layers = [
               'conv1_1',
@@ -75,9 +77,9 @@ def main():
     for image_path in glob.glob(os.path.join(data_dir, '{}.png'.format(image_name))):
         fns.append(os.path.basename(image_path).split('.')[0])
         image = imread(image_path, mode='RGB')
-        image = imresize(image, (224, 224)).astype(np.float32)
+        image = imresize(image, (n_input, n_input)).astype(np.float32)
         image_list.append(image)
-        onehot_label = np.array([1 if i == image_dict[image_name] else 0 for i in range(1000)])
+        onehot_label = np.array([1 if i == image_dict[image_name] else 0 for i in range(n_labels)])
         label_list.append(onehot_label)
 
     batch_img = np.array(image_list)
@@ -93,10 +95,7 @@ def main():
     if sal_map_type.split('_')[0] == 'GuidedBackprop':
         eval_graph = tf.get_default_graph()
         with eval_graph.gradient_override_map({'Relu': 'GuidedRelu'}):
-                # load the vgg graph
-                # plain_init = true -> load the graph with random weights
-                # plain_init = false -> load the graph with pre-trained weights
-                vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
+                conv_model = FC(sess)
 
     elif sal_map_type.split('_')[0] == 'NGuidedBackprop':
         eval_graph = tf.get_default_graph()
@@ -104,13 +103,13 @@ def main():
                 # load the vgg graph
                 # plain_init = true -> load the graph with random weights
                 # plain_init = false -> load the graph with pre-trained weights
-                vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
+                conv_model = FC(sess)
 
     elif sal_map_type.split('_')[0] == 'PlainSaliency':
         # load the vgg graph
         # plain_init = true -> load the graph with random weights
         # plain_init = false -> load the graph with pre-trained weights
-        vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
+        conv_model = FC(sess)
 
     else:
         raise Exception("Unknown saliency_map type - 1")
@@ -119,38 +118,38 @@ def main():
     # Visualize grad-camp and its adversarial examples
     # --------------------------------------------------------------------------
     # Get last convolutional layer gradient for generating gradCAM visualization
-    target_conv_layer = vgg.pool5
+    target_conv_layer = conv_model.convnet_out
     if sal_map_type.split('_')[1] == "cost":
-        conv_grad = tf.gradients(vgg.cost, target_conv_layer)[0]
+        conv_grad = tf.gradients(conv_model.cost, target_conv_layer)[0]
     elif sal_map_type.split('_')[1] == 'maxlogit':
-        conv_grad = tf.gradients(vgg.maxlogit, target_conv_layer)[0]
+        conv_grad = tf.gradients(conv_model.maxlogit, target_conv_layer)[0]
     elif sal_map_type.split('_')[1] == 'randlogit':
-        logit = np.random.randint(0, 1000, dtype='int32')
-        print('The logit chosen is: {}'.format(logit))
-        conv_grad = tf.gradients(vgg.logits[:, logit], target_conv_layer)[0]
+        conv_grad = tf.gradients(conv_model.logits[0], target_conv_layer)[0]
+        # conv_grad = tf.gradients(conv_model.logits[random.randint(0, 999)], target_conv_layer)[0]
     else:
         raise Exception("Unknown saliency_map type - 2")
+
     # normalization
     conv_grad_norm = tf.div(conv_grad, tf.norm(conv_grad) + tf.constant(1e-5))
 
     # saliency gradient to input layer
     if sal_map_type.split('_')[1] == "cost":
-        sal_map = tf.gradients(vgg.cost, vgg.imgs)[0]
+        sal_map = tf.gradients(conv_model.cost, conv_model.imgs)[0]
     elif sal_map_type.split('_')[1] == 'maxlogit':
-        sal_map = tf.gradients(vgg.maxlogit, vgg.imgs)[0]
+        sal_map = tf.gradients(conv_model.maxlogit, conv_model.imgs)[0]
     elif sal_map_type.split('_')[1] == 'randlogit':
-        # logit = np.random.randint(0, 1000)
-        sal_map = tf.gradients(vgg.logits[:, logit], vgg.imgs)[0]
+        sal_map = tf.gradients(conv_model.logits[0], conv_model.imgs)[0]
+        # sal_map = tf.gradients(conv_model.logits[random.randint(0, 999)], conv_model.imgs)[0]
     else:
         raise Exception("Unknown saliency_map type - 2")
 
     # predict
-    probs = sess.run(vgg.probs, feed_dict={vgg.images: batch_img})
+    probs = sess.run(conv_model.probs, feed_dict={conv_model.images: batch_img})
 
     # sal_map and conv_grad
     sal_map_val, target_conv_layer_val, conv_grad_norm_val =\
         sess.run([sal_map, target_conv_layer, conv_grad_norm],
-                 feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
+                 feed_dict={conv_model.images: batch_img, conv_model.labels: batch_label})
 
     for idx in range(batch_size):
         print_prob(probs[idx])
@@ -178,5 +177,5 @@ def main():
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '7'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     main()
