@@ -42,7 +42,7 @@ def sal_pool_normalization(sal_pool):
         sal_pool /= sal_pool.max()
         print(sal_pool.shape)
 
-def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn, prob):
+def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn, prob, layer_name):
 
     cam = grad_cam(conv_output, conv_grad)
 
@@ -67,12 +67,12 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
 
     ax = fig.add_subplot(gs[0, 0])
     ax.imshow(img)
-    ax.set_title('Input Image', fontsize=8)
+    ax.set_title('Input', fontsize=8)
     ax.tick_params(axis='both', which='major',  labelsize=6)
 
     ax = fig.add_subplot(gs[0, 1])
     ax.imshow(cam)
-    ax.set_title('Grad-Cam', fontsize=8)
+    ax.set_title('{}: Grad-Cam'.format(layer_name), fontsize=8)
     ax.tick_params(axis='both', which='major',  labelsize=6)
 
     pred = (np.argsort(prob)[::-1])
@@ -81,12 +81,12 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
 
     ax = fig.add_subplot(gs[0, 2])
     ax.imshow(sal_map)
-    ax.set_title(sal_map_type, fontsize=8)
+    ax.set_title('{}: {}'.format(layer_name, sal_map_type.split('_')[0]), fontsize=8)
     ax.tick_params(axis='both', which='major',  labelsize=6)
 
     ax = fig.add_subplot(gs[0, 3])
     ax.imshow(guided_grad_cam)
-    ax.set_title('guided Grad-Gam', fontsize=8)
+    ax.set_title('{}: guided Grad-Gam'.format(layer_name), fontsize=8)
     ax.tick_params(axis='both', which='major',  labelsize=6)
 
     # saved results path
@@ -97,13 +97,21 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
 
 def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_type, save_dir, fn):
 
+    # min = np.min(neuron_saliencies)
+    # neuron_saliencies -= min
+    # max = np.max(neuron_saliencies)
+    # neuron_saliencies /= max
+
     for idx in range(num_neurons):
 
         dir = save_dir + '/{}'.format(layer_name)
 
         sal_map = neuron_saliencies[idx]
-        sal_map -= np.min(sal_map)
-        sal_map /= sal_map.max()
+
+        min = np.min(sal_map)
+        sal_map -= min
+        max = np.max(sal_map)
+        sal_map /= max
 
         plt.imshow(sal_map)
 
@@ -113,5 +121,25 @@ def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_ty
                                  "layer_name={}_idx={}_sal_type={}_image_info={}.png"
                                  .format(layer_name, idx, sal_type, fn)))
         plt.close()
+
+def simple_plot(sal, save_dir, layer_name):
+
+    img = sal[0]
+
+    min = np.min(img)
+    img -= min
+    max = np.max(img)
+    img /= max
+
+    plt.imshow(img)
+
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    plt.savefig(os.path.join(save_dir,
+                             "{}.png"
+                             .format(layer_name)))
+    plt.close()
+
 
 

@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 from imagenet_classes import class_names
-
 from vgg16 import Vgg16
 from utils import print_prob, visualize, visualize_yang
 
@@ -50,128 +49,155 @@ def compare(layer, image1, image2, sess, pl_holder_X, firing_arg, similarity_arg
 
     return result
 
-def main():
+def predict_top_n(array, n=5):
+    temp = array[0].argsort()[-n:][::-1]
+    return [class_names[i] for i in temp]
 
-    folder_name = 'Imagenet_Dogs'
+def experiment_common_features(sess, batch_fns, batch_img, vgg_trained, batch_size, folder_name):
 
-    data_dir = "../data/{}/".format(folder_name)
-    save_dir = "results/10052017/"
+    # firings = []
+    # for image in batch_img:
+    #     img = np.reshape(image, (1, 224, 224, 3))
+    #     firings.append(sess.run(vgg_trained.layers_dic['fc2'], feed_dict={vgg_trained.imgs: img}))
+    # firings = np.array(firings)
 
-    layers = [
-              'conv1_1',
-              'conv1_2',
-              'pool1',
-              'conv2_1',
-              'conv2_2',
-              'pool2',
-              'conv3_1',
-              'conv3_2',
-              'conv3_3',
-              'pool3',
-              'conv4_1',
-              'conv4_2',
-              'conv4_3',
-              'pool4',
-              'conv5_1',
-              'conv5_2',
-              'conv5_3',
-              'pool5',
-              'fc1',
-              'fc2',
-              'fc3']
+    firings_fc2 = sess.run(vgg_trained.layers_dic['fc2'], feed_dict={vgg_trained.images: batch_img})
 
-    fns = []
-    image_list = []
+    w_softmax = sess.run(vgg_trained.layers_W_dic['fc3'])
 
-    for image_path in glob.glob(os.path.join(data_dir, '*.JPEG')):
-        file_name = os.path.basename(image_path)
-        file_name = file_name.split('.')[0]
-        file_name = file_name.split('_')[1]
-        fns.append(int(file_name))
-        image = imread(image_path, mode='RGB')
-        image = imresize(image, (224, 224)).astype(np.float32)
-        image_list.append(image)
+    for ratio in np.arange(0.8, 1.0, 0.1):
 
-    batch_fns = np.array(fns)
-    sort_indices = np.argsort(batch_fns)
-    batch_fns = batch_fns[sort_indices]
-    batch_img = np.array(image_list)
-    batch_img = batch_img[sort_indices]
-    batch_size = batch_img.shape[0]
+        f = open('log_invariance_{}_{}.txt'.format(folder_name, ratio), 'w')
 
-    # reference_image = batch_img[0]
+        holder = sys.stdout
 
-    # tf session
-    sess = tf.Session()
-    vgg_trained = Vgg16('vgg16_weights.npz', False, sess)
+        sys.stdout = f
 
-    ratio = 0.8
+        ahats_fc2 = np.sign(firings_fc2)
 
-    firings = []
-    for image in batch_img:
-        img = np.reshape(image, (1, 224, 224, 3))
-        firings += [sess.run(vgg_trained.layers_dic['fc2'], feed_dict={vgg_trained.imgs: img})]
-    firings = np.array(firings)
+        reduce_fc2 = np.sum(ahats_fc2, axis=0)
 
-    f = open('log_invariance_{}.txt'.format(ratio), 'w')
-    sys.stdout = f
+        common_pattern_idx_fc2 = np.where(reduce_fc2 >= batch_size * ratio)[1]
 
-    ahats = np.sign(firings)
-    reduce = np.sum(ahats, axis=0)[0]
-    common_pattern = np.where(reduce >= batch_size * ratio)
+        print('By setting the threshold to {}, we have {} common columns for fc2.'.format(ratio, len(common_pattern_idx_fc2)))
 
-    if len(common_pattern) == 0:
-        print('No common pattern!')
+        print('*********************************************************************************')
 
-    else:
+        print('Individually, for fc2, each column predicts to:')
 
-        w_softmax = sess.run(vgg_trained.layers_W_dic['fc3'])
-        w_pick = w_softmax[common_pattern]
-        print('common pattern class : {}'.format(
-            class_names[
-                np.argmax(
-                    np.sum(w_pick, axis=0)
-                )
-            ]
-        ))
+        for idx in common_pattern_idx_fc2:
+            print('Column {} predicts {}'.format(idx, predict_top_n([w_softmax[idx]])))
 
-        # for w in w_pick:
-        #     print(class_names[np.argmax(w)])
+        print('*********************************************************************************')
 
-        for idx, ahat in enumerate(ahats):
-            ahat_ori = np.copy(ahat[0])
+        common_pattern = np.zeros(reduce.shape)
+        common_pattern[:, common_pattern_idx_fc2] = 1
+        prediction = predict_top_n(np.dot(common_pattern, w_softmax))
 
-            ahat_left = ahat[0]
-            ahat_left[common_pattern] = 0
+        print('The common columns in fc2 together predict : {}'.format(prediction))
 
+        print('*********************************************************************************')
+
+        for idx, ahat in enumerate(ahats_fc2):
+
+            print('Image name = {}'.format(batch_fns[idx]))
+
+            prediction_firing = predict_top_n(np.dot(firings_fc2[idx], w_softmax))
+            print('The original prediction is {}.'.format(prediction_firing))
+
+            ahat_ori = np.copy(ahat)
+            ahat_left = ahat
+            ahat_left[:, common_pattern_idx_fc2] = 0
             ahat_common = ahat_ori - ahat_left
 
-            w_not_pick = w_softmax[np.where(ahat_left == 1)]
-            w_pick = w_softmax[np.where(ahat_common == 1)]
-            w_ori = w_softmax[np.where(ahat_ori == 1)]
+            prediction_ahat = predict_top_n(np.dot(ahat_ori, w_softmax))
+            print('The original ahat prediction is {}.'.format(prediction_ahat))
 
-            print('For iamge {},'
-                  ' the original firings sum to {},'
-                  ' the common firings sum to {},'
-                  ' the rest firings sum to : {}'.format(
-                idx,
-                class_names[
-                    np.argmax(
-                        np.sum(w_ori, axis=0)
-                    )
-                ],
-                class_names[
-                    np.argmax(
-                        np.sum(w_pick, axis=0)
-                    )
-                ],
-                class_names[
-                    np.argmax(
-                        np.sum(w_not_pick, axis=0)
-                    )
-                ])
-            )
+            prediction = predict_top_n(np.dot(ahat_left, w_softmax))
+            print('The image specific ahat prediction is {}.'.format(prediction))
 
+            prediction = predict_top_n(np.dot(ahat_common, w_softmax))
+            print('The image common ahat prediction is {}.'.format(prediction))
+
+            print('*********************************************************************************')
+
+        f.close()
+
+        sys.stdout = holder
+
+def experiment_ahat_prediction(sess, batch_fns, batch_img, vgg_trained, batch_size, folder_name):
+
+    firings_fc1 = sess.run(vgg_trained.layers_dic['fc1'], feed_dict={vgg_trained.images: batch_img})
+    ahats_fc1 = np.sign(firings_fc1)
+    
+
+
+def main():
+
+    is_BR = False
+
+    folders = ['Imagenet_Dogs',
+               'Imagenet_Cats']
+
+    for folder_name in folders:
+
+        data_dir = "../data/{}/".format(folder_name)
+
+        # save_dir = "results/10072017/"
+        #
+        # layers = [
+        #           'conv1_1',
+        #           'conv1_2',
+        #           'pool1',
+        #           'conv2_1',
+        #           'conv2_2',
+        #           'pool2',
+        #           'conv3_1',
+        #           'conv3_2',
+        #           'conv3_3',
+        #           'pool3',
+        #           'conv4_1',
+        #           'conv4_2',
+        #           'conv4_3',
+        #           'pool4',
+        #           'conv5_1',
+        #           'conv5_2',
+        #           'conv5_3',
+        #           'pool5',
+        #           'fc1',
+        #           'fc2',
+        #           'fc3']
+
+        fns = []
+        image_list = []
+        for image_path in glob.glob(os.path.join(data_dir, '*.JPEG')):
+            file_name = os.path.basename(image_path)
+            file_name = file_name.split('.')[0]
+            file_name = file_name.split('_')[1]
+            fns.append(int(file_name))
+            image = imread(image_path, mode='RGB')
+            image = imresize(image, (224, 224)).astype(np.float32)
+            image_list.append(image)
+
+        batch_fns = np.array(fns)
+        batch_img = np.array(image_list)
+        batch_size = batch_img.shape[0]
+
+        if is_BR:
+            sort_indices = np.argsort(batch_fns)
+            batch_fns = batch_fns[sort_indices]
+            batch_img = batch_img[sort_indices]
+
+        # tf session
+        sess = tf.Session()
+        vgg_trained = Vgg16('vgg16_weights.npz', False, sess)
+        # vgg_not_trained = Vgg16('vgg16_weights.npz', True, sess)
+
+        # Experiment 1
+        experiment_common_features(sess, batch_fns, batch_img, vgg_trained, batch_size, folder_name)
+
+        # Experiment 2
+        experiment_ahat_prediction(sess, batch_fns, batch_img, vgg_trained, batch_size, folder_name)
 
     # vgg_not_trained = Vgg16('vgg16_weights.npz', True, sess)
 
@@ -229,10 +255,8 @@ def main():
     #     probs_val = sess.run(vgg_trained.probs, feed_dict={vgg_trained.imgs: np.reshape(batch_img[i], (1, 224, 224, 3))})
     #     print("Predict class : {}".format(class_names[np.argmax(probs_val)]))
 
-    f.close()
-
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '5'
     main()

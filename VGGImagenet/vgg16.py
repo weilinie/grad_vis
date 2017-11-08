@@ -47,8 +47,6 @@ class Vgg16(object):
         else:
             print("vgg16 initialization failed ... ")
 
-
-
     def convlayers(self):
 
         # conv1_1
@@ -317,11 +315,43 @@ class Vgg16(object):
             self.layers_dic['fc3'] = self.fc3l
             self.layers_W_dic['fc3'] = fc3w
 
+    def load_weights_part(self, n, weight_file, sess):
+
+        # load only the first n layers of weights
+        # randomly initialize the rest
+
+        weights = np.load(weight_file)
+        keys = sorted(weights.keys())
+        for i, k in enumerate(keys):
+            if i <= n:
+                sess.run(self.parameters[i].assign(weights[k]))
+
+    def load_weights_reverse(self, n, weight_file, sess):
+
+        # don't load the first n layers of weights
+        # randomly initialize them
+
+        weights = np.load(weight_file)
+        keys = sorted(weights.keys())
+        for i, k in enumerate(keys):
+            if i > n:
+                sess.run(self.parameters[i].assign(weights[k]))
+
+    def load_weights_only(self, n, weight_file, sess):
+
+        # don't load a specific layer of weights
+        # randomly initialize it
+
+        weights = np.load(weight_file)
+        keys = sorted(weights.keys())
+        for i, k in enumerate(keys):
+            if i != n and i != n - 1:
+                sess.run(self.parameters[i].assign(weights[k]))
+
     def load_weights(self, weight_file, sess):
         weights = np.load(weight_file)
         keys = sorted(weights.keys())
         for i, k in enumerate(keys):
-            print i, k, np.shape(weights[k])
             sess.run(self.parameters[i].assign(weights[k]))
 
     def init(self, sess):
