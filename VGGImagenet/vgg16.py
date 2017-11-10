@@ -317,9 +317,10 @@ class Vgg16(object):
 
     def load_weights_part(self, n, weight_file, sess):
 
-        # load only the first n layers of weights
+        # fill the first "idx" layers with the trained weights
+        # n = idx * 2 + 1
         # randomly initialize the rest
-
+        self.init(sess)
         weights = np.load(weight_file)
         keys = sorted(weights.keys())
         for i, k in enumerate(keys):
@@ -328,9 +329,10 @@ class Vgg16(object):
 
     def load_weights_reverse(self, n, weight_file, sess):
 
-        # don't load the first n layers of weights
+        # do not fill the first "idx" layers with the trained weights
+        # n = idx * 2 + 1
         # randomly initialize them
-
+        self.init(sess)
         weights = np.load(weight_file)
         keys = sorted(weights.keys())
         for i, k in enumerate(keys):
@@ -339,9 +341,10 @@ class Vgg16(object):
 
     def load_weights_only(self, n, weight_file, sess):
 
-        # don't load a specific layer of weights
+        # do not load a specific layer ("idx") with the trained weights
+        # n = idx * 2 + 1
         # randomly initialize it
-
+        self.init(sess)
         weights = np.load(weight_file)
         keys = sorted(weights.keys())
         for i, k in enumerate(keys):
