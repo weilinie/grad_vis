@@ -95,9 +95,16 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
     print('Saving {}_cam_{}.png'.format(sal_map_type, fn))
     plt.savefig(os.path.join(save_dir, "{}_cam_{}.png".format(sal_map_type, fn)))
 
-def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_type, dir, fn):
+def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_type, save_dir, fn):
+
+    # min = np.min(neuron_saliencies)
+    # neuron_saliencies -= min
+    # max = np.max(neuron_saliencies)
+    # neuron_saliencies /= max
 
     for idx in range(num_neurons):
+
+        dir = save_dir + '/{}'.format(layer_name)
 
         sal_map = neuron_saliencies[idx]
 
@@ -115,7 +122,7 @@ def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_ty
                                  .format(layer_name, idx, sal_type, fn)))
         plt.close()
 
-def simple_plot(sal, save_dir, layer_name):
+def simple_plot(sal, save_dir, iteration):
 
     img = sal[0]
 
@@ -130,9 +137,30 @@ def simple_plot(sal, save_dir, layer_name):
         os.makedirs(save_dir)
 
     plt.savefig(os.path.join(save_dir,
-                             "{}.png"
-                             .format(layer_name)))
+                             "iteration_{}.png"
+                             .format(iteration)))
     plt.close()
 
+    img *= 255.
+
+    return sal
+
+def diff_plot(rd, tr, dir):
+
+    img_rd = rd[0]
+    img_tr = tr[0]
+
+    img_rd /= np.linalg.norm(img_rd)
+    img_tr /= np.linalg.norm(img_tr)
+
+    plt.imshow(img_rd - img_tr)
+
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+    plt.savefig(os.path.join(dir,
+                             "diff.png"))
+
+    plt.close()
 
 

@@ -22,6 +22,7 @@ class Vgg16(object):
 
         self.layers_dic = {}
         self.parameters = []
+        self.layers_W_dic = {}
 
         # zero-mean input
         with tf.name_scope('input') as scope:
@@ -50,8 +51,6 @@ class Vgg16(object):
         else:
             print("vgg16 initialization failed ... ")
 
-
-
     def convlayers(self):
 
         # conv1_1
@@ -66,6 +65,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv1_1'] = self.conv1_1
+            self.layers_W_dic['conv1_1'] = kernel
 
         # conv1_2
         with tf.name_scope('conv1_2') as scope:
@@ -79,6 +79,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv1_2'] = self.conv1_2
+            self.layers_W_dic['conv1_2'] = kernel
 
         # pool1
         self.pool1 = tf.nn.max_pool(self.conv1_2,
@@ -100,6 +101,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv2_1'] = self.conv2_1
+            self.layers_W_dic['conv2_1'] = kernel
 
         # conv2_2
         with tf.name_scope('conv2_2') as scope:
@@ -113,6 +115,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv2_2'] = self.conv2_2
+            self.layers_W_dic['conv2_2'] = kernel
 
         # pool2
         self.pool2 = tf.nn.max_pool(self.conv2_2,
@@ -134,6 +137,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv3_1'] = self.conv3_1
+            self.layers_W_dic['conv3_1'] = kernel
 
         # conv3_2
         with tf.name_scope('conv3_2') as scope:
@@ -147,6 +151,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv3_2'] = self.conv3_2
+            self.layers_W_dic['conv3_2'] = kernel
 
         # conv3_3
         with tf.name_scope('conv3_3') as scope:
@@ -160,6 +165,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv3_3'] = self.conv3_3
+            self.layers_W_dic['conv3_3'] = kernel
 
         # pool3
         self.pool3 = tf.nn.max_pool(self.conv3_3,
@@ -181,6 +187,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv4_1'] = self.conv4_1
+            self.layers_W_dic['conv4_1'] = kernel
 
         # conv4_2
         with tf.name_scope('conv4_2') as scope:
@@ -194,6 +201,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv4_2'] = self.conv4_2
+            self.layers_W_dic['conv4_2'] = kernel
 
         # conv4_3
         with tf.name_scope('conv4_3') as scope:
@@ -207,6 +215,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv4_3'] = self.conv4_3
+            self.layers_W_dic['conv4_3'] = kernel
 
         # pool4
         self.pool4 = tf.nn.max_pool(self.conv4_3,
@@ -228,6 +237,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv5_1'] = self.conv5_1
+            self.layers_W_dic['conv5_1'] = kernel
 
         # conv5_2
         with tf.name_scope('conv5_2') as scope:
@@ -241,6 +251,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv5_2'] = self.conv5_2
+            self.layers_W_dic['conv5_2'] = kernel
 
         # conv5_3
         with tf.name_scope('conv5_3') as scope:
@@ -254,6 +265,7 @@ class Vgg16(object):
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv5_3'] = self.conv5_3
+            self.layers_W_dic['conv5_3'] = kernel
 
         # pool5
         self.pool5 = tf.nn.max_pool(self.conv5_3,
@@ -278,6 +290,7 @@ class Vgg16(object):
 
             self.parameters += [fc1w, fc1b]
             self.layers_dic['fc1'] = self.fc1
+            self.layers_W_dic['fc1'] = fc1w
 
         # fc2
         with tf.name_scope('fc2') as scope:
@@ -291,6 +304,7 @@ class Vgg16(object):
 
             self.parameters += [fc2w, fc2b]
             self.layers_dic['fc2'] = self.fc2
+            self.layers_W_dic['fc2'] = fc2w
 
         # fc3
         with tf.name_scope('fc3') as scope:
@@ -303,12 +317,48 @@ class Vgg16(object):
 
             self.parameters += [fc3w, fc3b]
             self.layers_dic['fc3'] = self.fc3l
+            self.layers_W_dic['fc3'] = fc3w
+
+    def load_weights_part(self, n, weight_file, sess):
+
+        # fill the first "idx" layers with the trained weights
+        # n = idx * 2 + 1
+        # randomly initialize the rest
+        self.init(sess)
+        weights = np.load(weight_file)
+        keys = sorted(weights.keys())
+        for i, k in enumerate(keys):
+            if i <= n:
+                sess.run(self.parameters[i].assign(weights[k]))
+
+    def load_weights_reverse(self, n, weight_file, sess):
+
+        # do not fill the first "idx" layers with the trained weights
+        # n = idx * 2 + 1
+        # randomly initialize them
+        self.init(sess)
+        weights = np.load(weight_file)
+        keys = sorted(weights.keys())
+        for i, k in enumerate(keys):
+            if i > n:
+                sess.run(self.parameters[i].assign(weights[k]))
+
+    def load_weights_only(self, n, weight_file, sess):
+
+        # do not load a specific layer ("idx") with the trained weights
+        # n = idx * 2 + 1
+        # randomly initialize it
+        self.init(sess)
+        weights = np.load(weight_file)
+        keys = sorted(weights.keys())
+        for i, k in enumerate(keys):
+            if i != n and i != n - 1:
+                sess.run(self.parameters[i].assign(weights[k]))
 
     def load_weights(self, weight_file, sess):
         weights = np.load(weight_file)
         keys = sorted(weights.keys())
         for i, k in enumerate(keys):
-            print i, k, np.shape(weights[k])
             sess.run(self.parameters[i].assign(weights[k]))
 
     def init(self, sess):
