@@ -14,6 +14,10 @@ from utils import print_prob, visualize, visualize_yang, simple_plot
 image_dict = {'tabby': 281, 'laska': 356, 'mastiff': 243, 'restaurant': 762, 'hook': 600}
 sal_type = ['PlainSaliency', 'Deconv', 'GuidedBackprop']
 
+# np.random.seed(1234)
+tf.set_random_seed(1234)
+
+
 @ops.RegisterGradient("GuidedRelu")
 def _GuidedReluGrad(op, grad):
     return tf.where(0. < grad, gen_nn_ops._relu_grad(grad, op.outputs[0]), tf.zeros(tf.shape(grad)))
@@ -56,7 +60,6 @@ def super_saliency(tensor, inputs, num_to_viz):
     return tf.stack(result)
 
 def prepare_vgg(sal_type, layer_idx, load_weights, sess):
-<<<<<<< HEAD
 
     # construct the graph based on the gradient type we want
     if sal_type == 'GuidedBackprop':
@@ -106,57 +109,6 @@ def prepare_vgg(sal_type, layer_idx, load_weights, sess):
 def job1(vgg, sal_type, sess, init, image_name):
 
     batch_img, batch_label, fns = data(image_name)
-=======
-
-    # construct the graph based on the gradient type we want
-    if sal_type == 'GuidedBackprop':
-        eval_graph = tf.get_default_graph()
-        with eval_graph.gradient_override_map({'Relu': 'GuidedRelu'}):
-            vgg = Vgg16(sess=sess)
-
-    elif sal_type == 'Deconv':
-        eval_graph = tf.get_default_graph()
-        with eval_graph.gradient_override_map({'Relu': 'DeconvRelu'}):
-            vgg = Vgg16(sess=sess)
-
-    elif sal_type == 'PlainSaliency':
-        vgg = Vgg16(sess=sess)
-
-    else:
-        raise Exception("Unknown saliency_map type - 1")
-
-    # different options for loading weights
-    if load_weights == 'trained':
-        vgg.load_weights('vgg16_weights.npz', sess)
-
-    elif load_weights == 'random':
-        vgg.init(sess)
-
-    elif load_weights == 'part':
-        # fill the first "idx" layers with the trained weights
-        # randomly initialize the rest
-        vgg.load_weights_part(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
-
-    elif load_weights == 'reverse':
-        # do not fill the first "idx" layers with the trained weights
-        # randomly initialize them
-        vgg.load_weights_reverse(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
-
-    elif load_weights == 'only':
-        # do not load a specific layer ("idx") with the trained weights
-        # randomly initialize it
-        vgg.load_weights_only(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
-
-    else:
-        raise Exception("Unknown load_weights type - 1")
-
-
-    return vgg
-
-def job1(vgg, sal_type, sess, image_name):
-
-    data_dir = "data_imagenet"
->>>>>>> 9ee93a1a1c5260006ea0a654235153283770ba97
 
     fns = []
     image_list = []
@@ -200,11 +152,8 @@ def job1(vgg, sal_type, sess, image_name):
     num_to_viz = 20
     for layer_name in layers:
 
-<<<<<<< HEAD
         save_dir = "results/11102017/job1/{}/{}/{}/{}".format(image_name, init, sal_type, layer_name)
-=======
-        save_dir = "results/11102017/job1/{}/{}/{}".format(image_name, sal_type, layer_name)
->>>>>>> 9ee93a1a1c5260006ea0a654235153283770ba97
+
 
         saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.images, num_to_viz)
         # shape = (num_to_viz, num_input_images, 224, 224, 3)
@@ -214,7 +163,6 @@ def job1(vgg, sal_type, sess, image_name):
 
         visualize_yang(batch_img[0], num_to_viz, saliencies_val_trans[0], layer_name, sal_type, save_dir, fns[0])
 
-<<<<<<< HEAD
 def sparse_ratio(vgg, sess, layer_name, image_name, h_idx=None, v_idx=None):
 
     """
@@ -256,17 +204,7 @@ def main():
         result = sparse_ratio(vgg, sess, 'fc1', 'tabby')
         print('The sparse ratio of layer FC1 with {} weights is {}'.format(init, result))
         sess.close()
-=======
-def main():
 
-    for sal in sal_type:
-        for init in ['trained', 'random']:
-            tf.reset_default_graph()
-            sess = tf.Session()
-            vgg = prepare_vgg(sal, None, init, sess)
-            job1(vgg, sal, sess, 'tabby')
-            sess.close()
->>>>>>> 9ee93a1a1c5260006ea0a654235153283770ba97
 
 if __name__ == '__main__':
     # setup the GPUs to use
