@@ -12,18 +12,39 @@ from vgg16 import Vgg16
 from utils import print_prob, visualize, visualize_yang, simple_plot
 
 image_dict = {'tabby': 281, 'laska': 356, 'mastiff': 243, 'restaurant': 762, 'hook': 600}
+sal_type = ['PlainSaliency', 'Deconv', 'GuidedBackprop']
 
 @ops.RegisterGradient("GuidedRelu")
 def _GuidedReluGrad(op, grad):
     return tf.where(0. < grad, gen_nn_ops._relu_grad(grad, op.outputs[0]), tf.zeros(tf.shape(grad)))
 
-@ops.RegisterGradient("NGuidedRelu")
-def _Negative_GuidedReluGrad(op, grad):
-    return tf.where(0. > grad, gen_nn_ops._relu_grad(grad, -op.outputs[0]), tf.zeros(tf.shape(grad)))
-
 @ops.RegisterGradient("DeconvRelu")
 def _GuidedReluGrad(op, grad):
     return tf.where(0. < grad, grad, tf.zeros(tf.shape(grad)))
+
+def data(image_name):
+
+    data_dir = "data_imagenet"
+
+    fns = []
+    image_list = []
+    label_list = []
+
+    # load in the original image and its adversarial examples
+    for image_path in glob.glob(os.path.join(data_dir, '{}.png'.format(image_name))):
+        file_name = os.path.basename(image_path).split('.')[0]
+        print('File name : {}').format(file_name)
+        fns.append(file_name)
+        image = imread(image_path, mode='RGB')
+        image = imresize(image, (224, 224)).astype(np.float32)
+        image_list.append(image)
+        onehot_label = np.array([1 if i == image_dict[image_name] else 0 for i in range(1000)])
+        label_list.append(onehot_label)
+
+    batch_img = np.array(image_list)
+    batch_label = np.array(label_list)
+
+    return batch_img, batch_label, fns
 
 def super_saliency(tensor, inputs, num_to_viz):
     result = []
@@ -34,11 +55,56 @@ def super_saliency(tensor, inputs, num_to_viz):
         result.append(tf.gradients(tensor_flat[:, idx], inputs)[0])
     return tf.stack(result)
 
-def main():
+def prepare_vgg(sal_type, layer_idx, load_weights, sess):
 
-    plain_init = True
-    sal_map_type = "GuidedBackprop_maxlogit"
-    data_dir = "data_imagenet"
+    # construct the graph based on the gradient type we want
+    if sal_type == 'GuidedBackprop':
+        eval_graph = tf.get_default_graph()
+        with eval_graph.gradient_override_map({'Relu': 'GuidedRelu'}):
+            vgg = Vgg16(sess=sess)
+
+    elif sal_type == 'Deconv':
+        eval_graph = tf.get_default_graph()
+        with eval_graph.gradient_override_map({'Relu': 'DeconvRelu'}):
+            vgg = Vgg16(sess=sess)
+
+    elif sal_type == 'PlainSaliency':
+        vgg = Vgg16(sess=sess)
+
+    else:
+        raise Exception("Unknown saliency_map type - 1")
+
+    # different options for loading weights
+    if load_weights == 'trained':
+        vgg.load_weights('vgg16_weights.npz', sess)
+
+    elif load_weights == 'random':
+        vgg.init(sess)
+
+    elif load_weights == 'part':
+        # fill the first "idx" layers with the trained weights
+        # randomly initialize the rest
+        vgg.load_weights_part(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
+
+    elif load_weights == 'reverse':
+        # do not fill the first "idx" layers with the trained weights
+        # randomly initialize them
+        vgg.load_weights_reverse(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
+
+    elif load_weights == 'only':
+        # do not load a specific layer ("idx") with the trained weights
+        # randomly initialize it
+        vgg.load_weights_only(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
+
+    else:
+        raise Exception("Unknown load_weights type - 1")
+
+
+    return vgg
+
+def job1(vgg, sal_type, sess, init, image_name):
+
+    batch_img, batch_label, fns = data(image_name)
 
     layers = [
               'conv1_1',
@@ -58,185 +124,65 @@ def main():
               'fc2',
               'fc3']
 
-    image_name = 'tabby'
+    # first: pick one layer
+    # second: pick num_to_viz neurons from this layer
+    # third: calculate the saliency map w.r.t self.imgs for each picked neuron
+    num_to_viz = 20
+    for layer_name in layers:
 
-    fns = []
-    image_list = []
-    label_list = []
+        save_dir = "results/11102017/job1/{}/{}/{}/{}".format(image_name, init, sal_type, layer_name)
 
-    # load in the original image and its adversarial examples
-    for image_path in glob.glob(os.path.join(data_dir, '{}.png'.format(image_name))):
-        file_name = os.path.basename(image_path).split('.')[0]
-        print('File name : {}').format(file_name)
-        fns.append(file_name)
-        image = imread(image_path, mode='RGB')
-        image = imresize(image, (224, 224)).astype(np.float32)
-        image_list.append(image)
-        onehot_label = np.array([1 if i == image_dict[image_name] else 0 for i in range(1000)])
-        label_list.append(onehot_label)
+        saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.images, num_to_viz)
+        # shape = (num_to_viz, num_input_images, 224, 224, 3)
+        saliencies_val = sess.run(saliencies, feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
+        # shape = (num_input_images, num_to_viz, 224, 224, 3)
+        saliencies_val_trans = np.transpose(saliencies_val, (1, 0, 2, 3, 4))
 
-    batch_img = np.array(image_list)
-    batch_label = np.array(label_list)
-    batch_fns = fns
+        visualize_yang(batch_img[0], num_to_viz, saliencies_val_trans[0], layer_name, sal_type, save_dir, fns[0])
 
-    batch_size = batch_img.shape[0]
+def sparse_ratio(vgg, sess, layer_name, image_name, h_idx=None, v_idx=None):
 
-    for idx, layer_name in enumerate(layers):
+    """
+    Notice that the sparse ratio will be calculated w.r.t the entire batch!
+    """
 
+    # get the target layer tensor
+    if h_idx == None and v_idx == None:
+        target_tensor = vgg.layers_dic[layer_name]
+
+    # get the target "depth row" from the layer tensor
+    # corresponding to one image patch filtered by all the filters
+    elif h_idx != None and v_idx != None:
+        target_tensor = vgg.layers_dic[layer_name][:, h_idx, v_idx]
+
+    else:
+        raise Exception("Error in sparse_ratio !")
+
+    batch_img, batch_label, fns = data(image_name)
+
+    target_tensor_val = sess.run(target_tensor, feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
+    target_tensor_val[target_tensor_val > 0] = 1.0
+    return np.sum(target_tensor_val) / np.size(target_tensor_val)
+
+def main():
+
+#    for sal in sal_type:
+#        for init in ['trained', 'random']:
+#            tf.reset_default_graph()
+#            sess = tf.Session()
+#            vgg = prepare_vgg(sal, None, init, sess)
+#            job1(vgg, sal, sess, init, 'tabby')
+#            sess.close()
+
+    for init in ['trained', 'random']:
         tf.reset_default_graph()
-
-        save_dir = "results/11022017/reverse_load/tabby/{}".format(layer_name)
-
-        # tf session
         sess = tf.Session()
-
-        # construct the graph based on the gradient type we want
-        # plain relu vs guidedrelu
-        if sal_map_type.split('_')[0] == 'GuidedBackprop':
-            eval_graph = tf.get_default_graph()
-            with eval_graph.gradient_override_map({'Relu': 'GuidedRelu'}):
-                # load the vgg graph
-                # plain_init = true -> load the graph with random weights
-                # plain_init = false -> load the graph with pre-trained weights
-                vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
-
-        elif sal_map_type.split('_')[0] == 'Deconv':
-            eval_graph = tf.get_default_graph()
-            with eval_graph.gradient_override_map({'Relu': 'DeconvRelu'}):
-                # load the vgg graph
-                # plain_init = true -> load the graph with random weights
-                # plain_init = false -> load the graph with pre-trained weights
-                vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
-
-        elif sal_map_type.split('_')[0] == 'NGuidedBackprop':
-            eval_graph = tf.get_default_graph()
-            with eval_graph.gradient_override_map({'Relu': 'NGuidedRelu'}):
-                    # load the vgg graph
-                    # plain_init = true -> load the graph with random weights
-                    # plain_init = false -> load the graph with pre-trained weights
-                    vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
-
-        elif sal_map_type.split('_')[0] == 'PlainSaliency':
-            # load the vgg graph
-            # plain_init = true -> load the graph with random weights
-            # plain_init = false -> load the graph with pre-trained weights
-            vgg = Vgg16('vgg16_weights.npz', plain_init, sess)
-
-        else:
-            raise Exception("Unknown saliency_map type - 1")
-
-        vgg.load_weights_reverse(idx * 2 + 1, 'vgg16_weights.npz', sess)
-
-        # # Get last convolutional layer gradient for generating gradCAM visualization
-        # target_conv_layer = vgg.pool5
-        # if sal_map_type.split('_')[1] == "cost":
-        #     conv_grad = tf.gradients(vgg.cost, target_conv_layer)[0]
-        # elif sal_map_type.split('_')[1] == 'maxlogit':
-        #     conv_grad = tf.gradients(vgg.maxlogit, target_conv_layer)[0]
-        # else:
-        #     raise Exception("Unknown saliency_map type - 2")
-
-        # # normalization
-        # conv_grad_norm = tf.div(conv_grad, tf.norm(conv_grad) + tf.constant(1e-5))
-
-        # saliency gradient to input layer
-        if sal_map_type.split('_')[1] == "cost":
-            sal_map = tf.gradients(vgg.cost, vgg.imgs)[0]
-        elif sal_map_type.split('_')[1] == 'maxlogit':
-            sal_map = tf.gradients(vgg.maxlogit, vgg.imgs)[0]
-        else:
-            raise Exception("Unknown saliency_map type - 2")
-
-        # # predict
-        # probs = sess.run(vgg.probs, feed_dict={vgg.images: batch_img})
-
-        # # sal_map and conv_grad
-        # sal_map_val, target_conv_layer_val, conv_grad_norm_val =\
-        #     sess.run([sal_map, target_conv_layer, conv_grad_norm],
-        #              feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
-
-        sal_map_val = sess.run(sal_map, feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
-
-        # for idx in range(batch_size):
-        #     print_prob(probs[idx])
-        #     visualize(batch_img[idx], target_conv_layer_val[idx], conv_grad_norm_val[idx], sal_map_val[idx],
-        #               sal_map_type, save_dir, fns[idx], probs[idx], layer_name)
-
-        simple_plot(sal_map_val, save_dir, layer_name)
-
+        vgg = prepare_vgg('PlainSaliency', None, init, sess)
+        result = sparse_ratio(vgg, sess, 'fc1', 'tabby')
+        print('The sparse ratio of layer FC1 with {} weights is {}'.format(init, result))
         sess.close()
-
-    # # first: pick one layer
-    # # second: pick num_to_viz neurons from this layer
-    # # third: calculate the saliency map w.r.t self.imgs for each picked neuron
-    # num_to_viz = 200
-    # for layer_name in layers:
-    #
-    #     saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.imgs, num_to_viz)
-    #     # shape = (num_to_viz, num_input_images, 224, 224, 3)
-    #     saliencies_val = sess.run(saliencies, feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
-    #     # shape = (num_input_images, num_to_viz, 224, 224, 3)
-    #     saliencies_val_trans = np.transpose(saliencies_val, (1, 0, 2, 3, 4))
-    #
-    #     for idx in range(batch_size):
-    #         visualize_yang(batch_img[idx], num_to_viz, saliencies_val_trans[idx], layer_name, sal_map_type.split('_')[0], save_dir, fns[idx])
-
-    # fc2_ahats = []
-    # for idx, image in enumerate(batch_img):
-    #     img = np.reshape(image, (1, 224, 224, 3))
-    #     print('The image name : {}'.format(batch_fns[idx]))
-    #     print('Predict class : {}'.format(
-    #         class_names[
-    #             np.argmax(
-    #                 sess.run(vgg.probs, feed_dict={vgg.images: img})[0]
-    #             )
-    #         ])
-    #     )
-    #     fc2_firing = sess.run(vgg.layers_dic['fc2'], feed_dict={vgg.images: img})[0]
-    #     fc2_ahat = np.sign(fc2_firing)
-    #     fc2_ahats += [fc2_ahat]
-    #     w_softmax = sess.run(vgg.layers_W_dic['fc3'])
-    #     # w_pick = w_softmax[np.where(fc2_ahat == 1)]
-    #     print('Ahat predict class : {}'.format(
-    #         class_names[
-    #             np.argmax(
-    #                 np.dot(w_softmax.T, fc2_ahat)
-    #             )
-    #         ])
-    #     )
-    #
-    # print(batch_fns)
-    # ori_image_idx = batch_fns.index(image_name)
-    # print(ori_image_idx)
-    # fc2_ahats = np.array(fc2_ahats)
-    #
-    # for idx, ahat in enumerate(fc2_ahats):
-    #     if idx == ori_image_idx:
-    #         print('The original image has {} columns'.format(np.sum(ahat)))
-    #     else:
-    #         print('The image name : {}'.format(batch_fns[idx]))
-    #
-    #         plus = fc2_ahats[ori_image_idx] + ahat
-    #         stay = np.where(plus == 2.)
-    #
-    #         subtract = fc2_ahats[ori_image_idx] - ahat
-    #         delete = np.where(subtract == 1.)
-    #
-    #         add = np.where(subtract == -1.)
-    #
-    #         print('Comparing to the original image,'
-    #               ' we have {} columns stay the same,'
-    #               ' {} columns deleted,'
-    #               ' {} columns added'.format(
-    #             len(stay[0]),
-    #             len(delete[0]),
-    #             len(add[0]))
-    #         )
-    #
-    #
-    #
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '5'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
     main()
