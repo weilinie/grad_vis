@@ -1,0 +1,86 @@
+Original prediction : brain coral
+Ahat prediction : starfish, sea star
+The image name : laska_adv_FGSM_topkmis
+Compare to the original image, the laska_adv_FGSM_topkmis :
+Added 841 extra columns, which predict to starfish, sea star
+Deleted 295 existing columns, which predict to weasel
+The two share 315 columns, which predict to weasel
+*******************************************************************************
+Original prediction : weasel
+Ahat prediction : weasel
+The image name : laska_adv_SalMap_mis
+Compare to the original image, the laska_adv_SalMap_mis :
+Added 29 extra columns, which predict to polecat, fitch, foulmart, foumart, Mustela putorius
+Deleted 66 existing columns, which predict to weasel
+The two share 544 columns, which predict to weasel
+*******************************************************************************
+Original prediction : polecat, fitch, foulmart, foumart, Mustela putorius
+Ahat prediction : weasel
+The image name : laska_adv_FGSM
+Compare to the original image, the laska_adv_FGSM :
+Added 58 extra columns, which predict to polecat, fitch, foulmart, foumart, Mustela putorius
+Deleted 129 existing columns, which predict to weasel
+The two share 481 columns, which predict to weasel
+*******************************************************************************
+The original image has 610.0 columns/firngs
+*******************************************************************************
+Original prediction : polecat, fitch, foulmart, foumart, Mustela putorius
+Ahat prediction : polecat, fitch, foulmart, foumart, Mustela putorius
+The image name : laska_adv_IterGS
+Compare to the original image, the laska_adv_IterGS :
+Added 69 extra columns, which predict to polecat, fitch, foulmart, foumart, Mustela putorius
+Deleted 141 existing columns, which predict to weasel
+The two share 469 columns, which predict to weasel
+*******************************************************************************
+Original prediction : carton
+Ahat prediction : cup
+The image name : tabby_adv_FGSM_mis
+Compare to the original image, the tabby_adv_FGSM_mis :
+Added 167 extra columns, which predict to Chihuahua
+Deleted 110 existing columns, which predict to tabby, tabby cat
+The two share 622 columns, which predict to cup
+*******************************************************************************
+Original prediction : carton
+Ahat prediction : cup
+The image name : tabby_adv_FGSM_topkmis
+Compare to the original image, the tabby_adv_FGSM_topkmis :
+Added 167 extra columns, which predict to Chihuahua
+Deleted 110 existing columns, which predict to tabby, tabby cat
+The two share 622 columns, which predict to cup
+*******************************************************************************
+Original prediction : tiger cat
+Ahat prediction : Egyptian cat
+The image name : tabby_adv_SalMap_mis
+Compare to the original image, the tabby_adv_SalMap_mis :
+Added 70 extra columns, which predict to red fox, Vulpes vulpes
+Deleted 57 existing columns, which predict to Persian cat
+The two share 675 columns, which predict to Egyptian cat
+*******************************************************************************
+Original prediction : cup
+Ahat prediction : cup
+The image name : tabby_adv_IterGS
+Compare to the original image, the tabby_adv_IterGS :
+Added 183 extra columns, which predict to Chihuahua
+Deleted 116 existing columns, which predict to tabby, tabby cat
+The two share 616 columns, which predict to cup
+*******************************************************************************
+The original image has 732.0 columns/firngs
+*******************************************************************************
+The original image has 951.0 columns/firngs
+*******************************************************************************
+Original prediction : boxer
+Ahat prediction : boxer
+The image name : mastiff_adv_IterGS
+Compare to the original image, the mastiff_adv_IterGS :
+Added 0 extra columns, which predict to tench, Tinca tinca
+Deleted 0 existing columns, which predict to tench, Tinca tinca
+The two share 951 columns, which predict to boxer
+*******************************************************************************
+Original prediction : boxer
+Ahat prediction : boxer
+The image name : mastiff_adv_fsgm
+Compare to the original image, the mastiff_adv_fsgm :
+Added 0 extra columns, which predict to tench, Tinca tinca
+Deleted 0 existing columns, which predict to tench, Tinca tinca
+The two share 951 columns, which predict to boxer
+*******************************************************************************
