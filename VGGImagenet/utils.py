@@ -95,16 +95,9 @@ def visualize(image, conv_output, conv_grad, sal_map, sal_map_type, save_dir, fn
     print('Saving {}_cam_{}.png'.format(sal_map_type, fn))
     plt.savefig(os.path.join(save_dir, "{}_cam_{}.png".format(sal_map_type, fn)))
 
-def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_type, save_dir, fn):
-
-    # min = np.min(neuron_saliencies)
-    # neuron_saliencies -= min
-    # max = np.max(neuron_saliencies)
-    # neuron_saliencies /= max
+def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_type, dir, fn):
 
     for idx in range(num_neurons):
-
-        dir = save_dir + '/{}'.format(layer_name)
 
         sal_map = neuron_saliencies[idx]
 
