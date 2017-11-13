@@ -22,6 +22,30 @@ def _GuidedReluGrad(op, grad):
 def _GuidedReluGrad(op, grad):
     return tf.where(0. < grad, grad, tf.zeros(tf.shape(grad)))
 
+def data(image_name):
+
+    data_dir = "data_imagenet"
+
+    fns = []
+    image_list = []
+    label_list = []
+
+    # load in the original image and its adversarial examples
+    for image_path in glob.glob(os.path.join(data_dir, '{}.png'.format(image_name))):
+        file_name = os.path.basename(image_path).split('.')[0]
+        print('File name : {}').format(file_name)
+        fns.append(file_name)
+        image = imread(image_path, mode='RGB')
+        image = imresize(image, (224, 224)).astype(np.float32)
+        image_list.append(image)
+        onehot_label = np.array([1 if i == image_dict[image_name] else 0 for i in range(1000)])
+        label_list.append(onehot_label)
+
+    batch_img = np.array(image_list)
+    batch_label = np.array(label_list)
+
+    return batch_img, batch_label, fns
+
 def super_saliency(tensor, inputs, num_to_viz):
     result = []
     shape = int(np.prod(tensor.get_shape()[1:]))
@@ -78,27 +102,9 @@ def prepare_vgg(sal_type, layer_idx, load_weights, sess):
 
     return vgg
 
-def job1(vgg, sal_type, sess, image_name):
+def job1(vgg, sal_type, sess, init, image_name):
 
-    data_dir = "data_imagenet"
-
-    fns = []
-    image_list = []
-    label_list = []
-
-    # load in the original image and its adversarial examples
-    for image_path in glob.glob(os.path.join(data_dir, '{}.png'.format(image_name))):
-        file_name = os.path.basename(image_path).split('.')[0]
-        print('File name : {}').format(file_name)
-        fns.append(file_name)
-        image = imread(image_path, mode='RGB')
-        image = imresize(image, (224, 224)).astype(np.float32)
-        image_list.append(image)
-        onehot_label = np.array([1 if i == image_dict[image_name] else 0 for i in range(1000)])
-        label_list.append(onehot_label)
-
-    batch_img = np.array(image_list)
-    batch_label = np.array(label_list)
+    batch_img, batch_label, fns = data(image_name)
 
     layers = [
               'conv1_1',
@@ -124,7 +130,7 @@ def job1(vgg, sal_type, sess, image_name):
     num_to_viz = 20
     for layer_name in layers:
 
-        save_dir = "results/11102017/job1/{}/{}/{}".format(image_name, sal_type, layer_name)
+        save_dir = "results/11102017/job1/{}/{}/{}/{}".format(image_name, init, sal_type, layer_name)
 
         saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.images, num_to_viz)
         # shape = (num_to_viz, num_input_images, 224, 224, 3)
@@ -134,6 +140,30 @@ def job1(vgg, sal_type, sess, image_name):
 
         visualize_yang(batch_img[0], num_to_viz, saliencies_val_trans[0], layer_name, sal_type, save_dir, fns[0])
 
+def sparse_ratio(vgg, sess, layer_name, image_name, h_idx=None, v_idx=None):
+
+    """
+    Notice that the sparse ratio will be calculated w.r.t the entire batch!
+    """
+
+    # get the target layer tensor
+    if h_idx == None and v_idx == None:
+        target_tensor = vgg.layers_dic[layer_name]
+
+    # get the target "depth row" from the layer tensor
+    # corresponding to one image patch filtered by all the filters
+    elif h_idx != None and v_idx != None:
+        target_tensor = vgg.layers_dic[layer_name][:, h_idx, v_idx]
+
+    else:
+        raise Exception("Error in sparse_ratio !")
+
+    batch_img, batch_label, fns = data(image_name)
+
+    target_tensor_val = sess.run(target_tensor, feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
+    target_tensor_val[target_tensor_val > 0] = 1.0
+    return np.sum(target_tensor_val) / np.size(target_tensor_val)
+
 def main():
 
     for sal in sal_type:
@@ -141,8 +171,16 @@ def main():
             tf.reset_default_graph()
             sess = tf.Session()
             vgg = prepare_vgg(sal, None, init, sess)
-            job1(vgg, sal, sess, 'tabby')
+            job1(vgg, sal, sess, init, 'tabby')
             sess.close()
+
+    for init in ['trained', 'random']:
+        tf.reset_default_graph()
+        sess = tf.Session()
+        vgg = prepare_vgg('PlainSaliency', None, init, sess)
+        result = sparse_ratio(vgg, sess, 'fc1', 'tabby')
+        print('The sparse ratio of layer FC1 with {} weights is {}'.format(init, result))
+        sess.close()
 
 if __name__ == '__main__':
     # setup the GPUs to use
