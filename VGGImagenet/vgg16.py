@@ -13,6 +13,9 @@ import numpy as np
 import tensorflow as tf
 
 
+# np.random.seed(1234)
+tf.set_random_seed(1234)
+
 class Vgg16(object):
 
     def __init__(self, weights=None, plain_init=None, sess=None):
@@ -34,9 +37,10 @@ class Vgg16(object):
         self.convlayers()
         self.fc_layers()
 
-        self.probs = tf.nn.softmax(self.fc3l)
+        self.logits = self.fc3l
+        self.probs = tf.nn.softmax(self.logits)
         self.cost = tf.reduce_sum((self.probs - self.labels) ** 2)
-        self.maxlogit = tf.reduce_max(self.fc3l, axis=1)
+        self.maxlogit = tf.reduce_max(self.logits, axis=1)
 
         if plain_init and sess is not None:
             self.init(sess)

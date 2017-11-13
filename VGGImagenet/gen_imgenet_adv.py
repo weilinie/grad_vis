@@ -17,7 +17,7 @@ from vgg16 import Vgg16
 
 image_dict = {'tabby': 281, 'laska': 356, 'mastiff': 243}
 attack_list = ['FGSM', 'IterGS', 'SalMap']
-criteria_dict = {'topkmis': TopKMisclassification(k=5), 'mis': Misclassification()}
+criteria_dict = {'topkmis': TopKMisclassification(k=10), 'mis': Misclassification()}
 
 name1 = 'tabby'
 attack_type = "FGSM"
