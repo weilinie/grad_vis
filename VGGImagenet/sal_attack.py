@@ -200,7 +200,7 @@ def main():
     D = tf.reduce_sum(tf.multiply(diff, diff))
 
     # gradient
-    Dx = tf.gradients(vgg.maxlogit, vgg.images)
+    Dx = tf.gradients(vgg.D, vgg.images)
 
     # the signed gradient
     Dx_sign = tf.sign(Dx)
