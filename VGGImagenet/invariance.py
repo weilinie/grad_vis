@@ -242,6 +242,14 @@ def main():
         # print('Sparse ratio : {}'.format(np.mean(firing_states_trained, axis=1)))
         # print('Diff : {}'.format(np.mean(firing_states_diff, axis=1)))
 
+
+
+    # firing_arg = 'ahat'  # can be 'plain' or 'ahat'
+    # similarity_arg = 'jaccard'  # can be 'allclose' or 'jaccard'
+
+    # f = open('log_{}_{}_{}.txt'.format(folder_name, firing_arg, similarity_arg), 'w')
+    # sys.stdout = f
+
     # for i in range(batch_size):
     #     result = []
     #     firing_states = []

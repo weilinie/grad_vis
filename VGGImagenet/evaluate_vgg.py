@@ -13,6 +13,23 @@ from utils import print_prob, visualize, visualize_yang, simple_plot
 
 image_dict = {'tabby': 281, 'laska': 356, 'mastiff': 243, 'restaurant': 762, 'hook': 600}
 sal_type = ['PlainSaliency', 'Deconv', 'GuidedBackprop']
+layers = [
+    'conv1_1',
+    'conv1_2',
+    'conv2_1',
+    'conv2_2',
+    'conv3_1',
+    'conv3_2',
+    'conv3_3',
+    'conv4_1',
+    'conv4_2',
+    'conv4_3',
+    'conv5_1',
+    'conv5_2',
+    'conv5_3',
+    'fc1',
+    'fc2',
+    'fc3']
 
 @ops.RegisterGradient("GuidedRelu")
 def _GuidedReluGrad(op, grad):
@@ -31,14 +48,22 @@ def data(image_name):
     label_list = []
 
     # load in the original image and its adversarial examples
+<<<<<<< HEAD
     for image_path in glob.glob(os.path.join(data_dir, '{}.png'.format(image_name))):
+=======
+    for image_path in glob.glob(os.path.join(data_dir, '{}.jpg'.format(image_name))):
+>>>>>>> ac344f8ebdcdd26d109895c08b568363c763c5e7
         file_name = os.path.basename(image_path).split('.')[0]
         print('File name : {}').format(file_name)
         fns.append(file_name)
         image = imread(image_path, mode='RGB')
         image = imresize(image, (224, 224)).astype(np.float32)
         image_list.append(image)
+<<<<<<< HEAD
         onehot_label = np.array([1 if i == image_dict[image_name] else 0 for i in range(1000)])
+=======
+        onehot_label = np.array([1 if i == 1 else 0 for i in range(1000)])
+>>>>>>> ac344f8ebdcdd26d109895c08b568363c763c5e7
         label_list.append(onehot_label)
 
     batch_img = np.array(image_list)
@@ -103,26 +128,13 @@ def prepare_vgg(sal_type, layer_idx, load_weights, sess):
     return vgg
 
 def job1(vgg, sal_type, sess, init, image_name):
+<<<<<<< HEAD
 
     batch_img, batch_label, fns = data(image_name)
+=======
+>>>>>>> ac344f8ebdcdd26d109895c08b568363c763c5e7
 
-    layers = [
-              'conv1_1',
-              'conv1_2',
-              'conv2_1',
-              'conv2_2',
-              'conv3_1',
-              'conv3_2',
-              'conv3_3',
-              'conv4_1',
-              'conv4_2',
-              'conv4_3',
-              'conv5_1',
-              'conv5_2',
-              'conv5_3',
-              'fc1',
-              'fc2',
-              'fc3']
+    batch_img, batch_label, fns = data(image_name)
 
     # first: pick one layer
     # second: pick num_to_viz neurons from this layer
@@ -130,7 +142,11 @@ def job1(vgg, sal_type, sess, init, image_name):
     num_to_viz = 20
     for layer_name in layers:
 
+<<<<<<< HEAD
         save_dir = "results/11102017/job1/{}/{}/{}/{}".format(image_name, init, sal_type, layer_name)
+=======
+        save_dir = "results/11132017/new_normalization/job1/{}/{}/{}/{}".format(image_name, init, sal_type, layer_name)
+>>>>>>> ac344f8ebdcdd26d109895c08b568363c763c5e7
 
         saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.images, num_to_viz)
         # shape = (num_to_viz, num_input_images, 224, 224, 3)
@@ -140,6 +156,17 @@ def job1(vgg, sal_type, sess, init, image_name):
 
         visualize_yang(batch_img[0], num_to_viz, saliencies_val_trans[0], layer_name, sal_type, save_dir, fns[0])
 
+<<<<<<< HEAD
+=======
+def job2(vgg, image_name, sess):
+
+    batch_img, batch_label, fns = data(image_name)
+
+    saliency = tf.gradients(vgg.maxlogit, vgg.images)[0]
+
+    return sess.run(saliency, feed_dict={vgg.images: batch_img, vgg.labels: batch_label})
+
+>>>>>>> ac344f8ebdcdd26d109895c08b568363c763c5e7
 def sparse_ratio(vgg, sess, layer_name, image_name, h_idx=None, v_idx=None):
 
     """
@@ -166,6 +193,7 @@ def sparse_ratio(vgg, sess, layer_name, image_name, h_idx=None, v_idx=None):
 
 def main():
 
+<<<<<<< HEAD
     for sal in sal_type:
         for init in ['trained', 'random']:
             tf.reset_default_graph()
@@ -173,6 +201,37 @@ def main():
             vgg = prepare_vgg(sal, None, init, sess)
             job1(vgg, sal, sess, init, 'tabby')
             sess.close()
+=======
+    for image_name in ['Dog_1', 'Dog_2', 'Dog_3', 'Dog_4', 'Dog_5']:
+        for sal in sal_type:
+            for init in ['trained', 'random']:
+                tf.reset_default_graph()
+                sess = tf.Session()
+                vgg = prepare_vgg(sal, None, init, sess)
+                job1(vgg, sal, sess, init, image_name)
+                sess.close()
+
+    # for init in ['trained', 'random']:
+    #     tf.reset_default_graph()
+    #     sess = tf.Session()
+    #     vgg = prepare_vgg('PlainSaliency', None, init, sess)
+    #     result = sparse_ratio(vgg, sess, 'fc1', 'tabby')
+    #     print('The sparse ratio of layer FC1 with {} weights is {}'.format(init, result))
+    #     sess.close()
+
+    # for image_name in ['Dog_1', 'Dog_2', 'Dog_3', 'Dog_4', 'Dog_5']:
+    #     for sal in sal_type:
+    #         save_dir = 'results/11132017/new_normalization/{}/{}/'.format(image_name, sal)
+    #         for idx, layer in enumerate(layers):
+    #             tf.reset_default_graph()
+    #             sess = tf.Session()
+    #             vgg = prepare_vgg(sal, idx, 'part', sess)
+    #             saliency_val = job2(vgg, image_name, sess)
+    #             simple_plot(saliency_val, save_dir, layer)
+    #             sess.close()
+
+
+>>>>>>> ac344f8ebdcdd26d109895c08b568363c763c5e7
 
     for init in ['trained', 'random']:
         tf.reset_default_graph()
@@ -184,5 +243,5 @@ def main():
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '5'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
     main()
