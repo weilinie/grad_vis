@@ -101,10 +101,14 @@ def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_ty
 
         sal_map = neuron_saliencies[idx]
 
-        min = np.min(sal_map)
-        sal_map -= min
-        max = np.max(sal_map)
-        sal_map /= max
+        # min = np.min(sal_map)
+        # sal_map -= min
+        # max = np.max(sal_map)
+        # sal_map /= max
+
+        img = np.abs(img)
+        img /= np.sum(img)
+        img /= np.max(img)
 
         plt.imshow(sal_map)
 
@@ -119,10 +123,14 @@ def simple_plot(sal, save_dir, layer_name):
 
     img = sal[0]
 
-    min = np.min(img)
-    img -= min
-    max = np.max(img)
-    img /= max
+    # min = np.min(img)
+    # img -= min
+    # max = np.max(img)
+    # img /= max
+
+    img = np.abs(img)
+    img /= np.sum(img)
+    img /= np.max(img)
 
     plt.imshow(img)
 
