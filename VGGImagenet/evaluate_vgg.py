@@ -129,7 +129,7 @@ def job1(vgg, sal_type, sess, init, image_name):
     num_to_viz = 20
     for layer_name in layers:
 
-        save_dir = "results/11102017/job1/{}/{}/{}/{}".format(image_name, init, sal_type, layer_name)
+        save_dir = "results/11132017/new_normalization/job1/{}/{}/{}/{}".format(image_name, init, sal_type, layer_name)
 
         saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.images, num_to_viz)
         # shape = (num_to_viz, num_input_images, 224, 224, 3)
@@ -173,13 +173,14 @@ def sparse_ratio(vgg, sess, layer_name, image_name, h_idx=None, v_idx=None):
 
 def main():
 
-    # for sal in sal_type:
-    #     for init in ['trained', 'random']:
-    #         tf.reset_default_graph()
-    #         sess = tf.Session()
-    #         vgg = prepare_vgg(sal, None, init, sess)
-    #         job1(vgg, sal, sess, init, 'tabby')
-    #         sess.close()
+    for image_name in ['Dog_1', 'Dog_2', 'Dog_3', 'Dog_4', 'Dog_5']:
+        for sal in sal_type:
+            for init in ['trained', 'random']:
+                tf.reset_default_graph()
+                sess = tf.Session()
+                vgg = prepare_vgg(sal, None, init, sess)
+                job1(vgg, sal, sess, init, image_name)
+                sess.close()
 
     # for init in ['trained', 'random']:
     #     tf.reset_default_graph()
@@ -189,16 +190,16 @@ def main():
     #     print('The sparse ratio of layer FC1 with {} weights is {}'.format(init, result))
     #     sess.close()
 
-    for image_name in ['forest']:
-        for sal in sal_type:
-            save_dir = 'results/11132017/{}/{}/'.format(image_name, sal)
-            for idx, layer in enumerate(layers):
-                tf.reset_default_graph()
-                sess = tf.Session()
-                vgg = prepare_vgg(sal, idx, 'part', sess)
-                saliency_val = job2(vgg, image_name, sess)
-                simple_plot(saliency_val, save_dir, layer)
-                sess.close()
+    # for image_name in ['Dog_1', 'Dog_2', 'Dog_3', 'Dog_4', 'Dog_5']:
+    #     for sal in sal_type:
+    #         save_dir = 'results/11132017/new_normalization/{}/{}/'.format(image_name, sal)
+    #         for idx, layer in enumerate(layers):
+    #             tf.reset_default_graph()
+    #             sess = tf.Session()
+    #             vgg = prepare_vgg(sal, idx, 'part', sess)
+    #             saliency_val = job2(vgg, image_name, sess)
+    #             simple_plot(saliency_val, save_dir, layer)
+    #             sess.close()
 
 
 
