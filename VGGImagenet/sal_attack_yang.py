@@ -7,6 +7,8 @@ from tensorflow.python.ops import gen_nn_ops
 np.set_printoptions(threshold=np.nan)
 import glob
 from vgg16 import Vgg16
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt, gridspec
 
 @ops.RegisterGradient("GuidedRelu")
@@ -137,42 +139,49 @@ def normalize(img):
 
     return img
 
-def evaluate_and_plot(ori_pre, network, sess, dict_image, dict_dissim, dict_salmap, iterations):
+def plot(idx, img, sal, dissim):
 
-    save_dir = '/results/11152017/attack_sal/'
+    save_dir = 'results/11152017/attack_sal/'
+
+    img = normalize(img[0])
+    sal = normalize(sal[0])
+
+    fig = plt.figure()
+
+    gs = gridspec.GridSpec(1, 2, wspace=0.2, hspace=0.2)
+
+    ax = fig.add_subplot(gs[0, 0])
+    ax.imshow(img)
+    ax.set_title('Ad_Input', fontsize=8)
+    ax.tick_params(axis='both', which='major', labelsize=6)
+
+    ax = fig.add_subplot(gs[0, 1])
+    ax.imshow(sal)
+    ax.set_title('SalMap with dissimilarity = {}'.format(dissim), fontsize=8)
+    ax.tick_params(axis='both', which='major', labelsize=6)
+
+    # save
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    plt.savefig(os.path.join(save_dir, "attack_{}.png".format(idx)))
+
+
+
+def evaluate(ori_pre, network, sess, dict_image, dict_dissim, dict_salmap, iterations):
+
+
 
     for i in range(iterations): # check each step
 
-        if i == 0: # skip the first step, no perturbation at all
+        if i == 0:
+            plot(i, dict_image[i], dict_salmap[i], dict_dissim[i])
             continue
 
         predictions = sess.run(network.probs, feed_dict={network.images: dict_image[i]})
 
         if np.argmax(predictions) == ori_pre: # if the prediction doesn't change
-
             print("We find one!")
-
-            img = normalize(dict_image[i])
-            sal = normalize(dict_salmap[i])
-
-            fig = plt.figure()
-
-            gs = gridspec.GridSpec(1, 2, wspace=0.2, hspace=0.2)
-
-            ax = fig.add_subplot(gs[0, 0])
-            ax.imshow(img)
-            ax.set_title('Ad_Input', fontsize=8)
-            ax.tick_params(axis='both', which='major', labelsize=6)
-
-            ax = fig.add_subplot(gs[0, 1])
-            ax.imshow(sal)
-            ax.set_title('SalMap with dissimilarity = {}'.format(dict_dissim[i]), fontsize=8)
-            ax.tick_params(axis='both', which='major', labelsize=6)
-
-            # save
-            if not os.path.exists(save_dir):
-                os.makedirs(save_dir)
-            plt.savefig(os.path.join(save_dir, "attack_{}.png".format(i)))
+            plot(i, dict_image[i], dict_salmap[i], dict_dissim[i])
 
 
 def main():
@@ -200,7 +209,7 @@ def main():
     D = tf.reduce_sum(tf.multiply(diff, diff))
 
     # gradient
-    Dx = tf.gradients(D, vgg.images)
+    Dx = tf.gradients(D, sal)[0]
 
     # the signed gradient
     Dx_sign = tf.sign(Dx)
@@ -223,17 +232,19 @@ def main():
         D_val, Dx_sign_val, sal_map_val \
             = sess.run([D, Dx_sign, sal_maxlogit(vgg)], feed_dict={vgg.images: dict_step_to_image[step - 1]})
 
+        print('The difference = {}'.format(D_val))
+
         dict_step_to_image[step] = dict_step_to_image[step - 1] + step_size * Dx_sign_val
         dict_step_to_salmap[step] = sal_map_val
         dict_step_to_dissimilarity[step] = D_val
 
-    evaluate_and_plot(original_pre,
-                      vgg,
-                      sess,
-                      dict_step_to_image,
-                      dict_step_to_dissimilarity,
-                      dict_step_to_salmap,
-                      num_iterations)
+    evaluate(original_pre,
+             vgg,
+             sess,
+             dict_step_to_image,
+             dict_step_to_dissimilarity,
+             dict_step_to_salmap,
+             num_iterations)
 
     sess.close()
 
