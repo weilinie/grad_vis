@@ -232,11 +232,11 @@ def main():
         D_val, Dx_sign_val, sal_map_val \
             = sess.run([D, Dx_sign, sal_maxlogit(vgg)], feed_dict={vgg.images: dict_step_to_image[step - 1]})
 
-        print('The difference = {}'.format(D_val))
+        print('The difference = {}'.format(np.sqrt(D_val)))
 
         dict_step_to_image[step] = dict_step_to_image[step - 1] + step_size * Dx_sign_val
         dict_step_to_salmap[step] = sal_map_val
-        dict_step_to_dissimilarity[step] = D_val
+        dict_step_to_dissimilarity[step] = np.sqrt(D_val)
 
     evaluate(original_pre,
              vgg,
