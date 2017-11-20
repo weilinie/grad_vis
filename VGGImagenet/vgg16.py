@@ -18,7 +18,10 @@ tf.set_random_seed(1234)
 
 class Vgg16(object):
 
-    def __init__(self, weights=None, plain_init=None, sess=None):
+    def __init__(self, weights=None, plain_init=None, sess=None, act_type='relu', pool_type='maxpool'):
+
+        self.act_type = act_type
+        self.pool_type = pool_type
 
         self.layers_dic = {}
         self.parameters = []
@@ -51,6 +54,32 @@ class Vgg16(object):
         else:
             print("vgg16 initialization failed ... ")
 
+    def act(self, tensor, name):
+
+        if self.act_type == 'relu':
+            return tf.nn.relu(tensor, name = name)
+
+        if self.act_type == 'softplus':
+            return tf.nn.softplus(tensor, name = name)
+
+    def pool(self, tensor, name):
+
+        if self.pool_type == 'maxpool':
+
+            return tf.nn.max_pool(tensor,
+                                  ksize=[1, 2, 2, 1],
+                                  strides=[1, 2, 2, 1],
+                                  padding='SAME',
+                                  name=name)
+
+        if self.pool_type == 'avgpool':
+
+            return tf.nn.avg_pool(tensor,
+                                  ksize=[1, 2, 2, 1],
+                                  strides=[1, 2, 2, 1],
+                                  padding='SAME',
+                                  name=name)
+
     def convlayers(self):
 
         # conv1_1
@@ -61,7 +90,7 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[64], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv1_1 = tf.nn.relu(out, name=scope)
+            self.conv1_1 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv1_1'] = self.conv1_1
@@ -75,18 +104,14 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[64], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv1_2 = tf.nn.relu(out, name=scope)
+            self.conv1_2 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv1_2'] = self.conv1_2
             self.layers_W_dic['conv1_2'] = kernel
 
         # pool1
-        self.pool1 = tf.nn.max_pool(self.conv1_2,
-                               ksize=[1, 2, 2, 1],
-                               strides=[1, 2, 2, 1],
-                               padding='SAME',
-                               name='pool1')
+        self.pool1 = self.pool(tensor=self.conv1_2, name='pool1')
         self.layers_dic['pool1'] = self.pool1
 
         # conv2_1
@@ -97,7 +122,7 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[128], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv2_1 = tf.nn.relu(out, name=scope)
+            self.conv2_1 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv2_1'] = self.conv2_1
@@ -111,18 +136,14 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[128], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv2_2 = tf.nn.relu(out, name=scope)
+            self.conv2_2 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv2_2'] = self.conv2_2
             self.layers_W_dic['conv2_2'] = kernel
 
         # pool2
-        self.pool2 = tf.nn.max_pool(self.conv2_2,
-                               ksize=[1, 2, 2, 1],
-                               strides=[1, 2, 2, 1],
-                               padding='SAME',
-                               name='pool2')
+        self.pool2 = self.pool(tensor=self.conv2_2, name='pool2')
         self.layers_dic['pool2'] = self.pool2
 
         # conv3_1
@@ -133,7 +154,7 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[256], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv3_1 = tf.nn.relu(out, name=scope)
+            self.conv3_1 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv3_1'] = self.conv3_1
@@ -147,7 +168,7 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[256], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv3_2 = tf.nn.relu(out, name=scope)
+            self.conv3_2 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv3_2'] = self.conv3_2
@@ -161,18 +182,14 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[256], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv3_3 = tf.nn.relu(out, name=scope)
+            self.conv3_3 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv3_3'] = self.conv3_3
             self.layers_W_dic['conv3_3'] = kernel
 
         # pool3
-        self.pool3 = tf.nn.max_pool(self.conv3_3,
-                               ksize=[1, 2, 2, 1],
-                               strides=[1, 2, 2, 1],
-                               padding='SAME',
-                               name='pool3')
+        self.pool3 = self.pool(tensor=self.conv3_3, name='pool3')
         self.layers_dic['pool3'] = self.pool3
 
         # conv4_1
@@ -183,7 +200,7 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv4_1 = tf.nn.relu(out, name=scope)
+            self.conv4_1 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv4_1'] = self.conv4_1
@@ -197,7 +214,7 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv4_2 = tf.nn.relu(out, name=scope)
+            self.conv4_2 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv4_2'] = self.conv4_2
@@ -211,18 +228,14 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv4_3 = tf.nn.relu(out, name=scope)
+            self.conv4_3 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv4_3'] = self.conv4_3
             self.layers_W_dic['conv4_3'] = kernel
 
         # pool4
-        self.pool4 = tf.nn.max_pool(self.conv4_3,
-                               ksize=[1, 2, 2, 1],
-                               strides=[1, 2, 2, 1],
-                               padding='SAME',
-                               name='pool4')
+        self.pool4 = self.pool(tensor=self.conv4_3, name='pool4')
         self.layers_dic['pool4'] = self.pool4
 
         # conv5_1
@@ -233,7 +246,7 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv5_1 = tf.nn.relu(out, name=scope)
+            self.conv5_1 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv5_1'] = self.conv5_1
@@ -247,7 +260,7 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv5_2 = tf.nn.relu(out, name=scope)
+            self.conv5_2 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv5_2'] = self.conv5_2
@@ -261,18 +274,14 @@ class Vgg16(object):
             biases = tf.Variable(tf.constant(0.0, shape=[512], dtype=tf.float32),
                                  trainable=True, name='biases')
             out = tf.nn.bias_add(conv, biases)
-            self.conv5_3 = tf.nn.relu(out, name=scope)
+            self.conv5_3 = self.act(tensor=out, name=scope)
 
             self.parameters += [kernel, biases]
             self.layers_dic['conv5_3'] = self.conv5_3
             self.layers_W_dic['conv5_3'] = kernel
 
         # pool5
-        self.pool5 = tf.nn.max_pool(self.conv5_3,
-                               ksize=[1, 2, 2, 1],
-                               strides=[1, 2, 2, 1],
-                               padding='SAME',
-                               name='pool5')
+        self.pool5 = self.pool(tensor=self.conv5_3, name='pool5')
         self.layers_dic['pool5'] = self.pool5
 
     def fc_layers(self):
@@ -286,7 +295,7 @@ class Vgg16(object):
                                  trainable=True, name='biases')
             pool5_flat = tf.reshape(self.pool5, [-1, shape])
             fc1l = tf.nn.bias_add(tf.matmul(pool5_flat, fc1w), fc1b)
-            self.fc1 = tf.nn.relu(fc1l)
+            self.fc1 = self.act(tensor=fc1l, name=scope)
 
             self.parameters += [fc1w, fc1b]
             self.layers_dic['fc1'] = self.fc1
@@ -300,7 +309,7 @@ class Vgg16(object):
             fc2b = tf.Variable(tf.constant(1.0, shape=[4096], dtype=tf.float32),
                                  trainable=True, name='biases')
             fc2l = tf.nn.bias_add(tf.matmul(self.fc1, fc2w), fc2b)
-            self.fc2 = tf.nn.relu(fc2l)
+            self.fc2 = self.act(tensor=fc2l, name=scope)
 
             self.parameters += [fc2w, fc2b]
             self.layers_dic['fc2'] = self.fc2

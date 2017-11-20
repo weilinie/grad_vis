@@ -7,6 +7,8 @@ from tensorflow.python.ops import gen_nn_ops
 np.set_printoptions(threshold=np.nan)
 import glob
 from vgg16 import Vgg16
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt, gridspec
 
 @ops.RegisterGradient("GuidedRelu")
@@ -14,24 +16,24 @@ def _GuidedReluGrad(op, grad):
     return tf.where(0. < grad, gen_nn_ops._relu_grad(grad, op.outputs[0]), tf.zeros(tf.shape(grad)))
 
 @ops.RegisterGradient("DeconvRelu")
-def _GuidedReluGrad(op, grad):
+def _DeconvGrad(op, grad):
     return tf.where(0. < grad, grad, tf.zeros(tf.shape(grad)))
 
-def prepare_vgg(sal_type, layer_idx, load_weights, sess):
+def prepare_vgg(sal_type, act_type, pool_type, layer_idx, load_weights, sess):
 
     # construct the graph based on the gradient type we want
     if sal_type == 'GuidedBackprop':
         eval_graph = tf.get_default_graph()
         with eval_graph.gradient_override_map({'Relu': 'GuidedRelu'}):
-            vgg = Vgg16(sess=sess)
+            vgg = Vgg16(sess=sess, act_type=act_type, pool_type=pool_type)
 
     elif sal_type == 'Deconv':
         eval_graph = tf.get_default_graph()
         with eval_graph.gradient_override_map({'Relu': 'DeconvRelu'}):
-            vgg = Vgg16(sess=sess)
+            vgg = Vgg16(sess=sess, act_type=act_type, pool_type=pool_type)
 
     elif sal_type == 'PlainSaliency':
-        vgg = Vgg16(sess=sess)
+        vgg = Vgg16(sess=sess, act_type=act_type, pool_type=pool_type)
 
     else:
         raise Exception("Unknown saliency_map type - 1")
@@ -67,10 +69,15 @@ def sal_maxlogit(network):
 
     """
     network will be a vgg object
+    consistent with the visualization
     """
 
-    sal = tf.gradients(network.maxlogit, network.images)[0]
-    return sal
+    sal_ori = tf.gradients(network.maxlogit, network.images)[0]
+    sal_abs = tf.abs(sal_ori)
+    sal_norm1 = sal_abs / tf.reduce_sum(sal_abs)
+    sal_norm2 = sal_norm1 / tf.reduce_max(sal_norm1)
+
+    return sal_norm2
 
 def helper(idx, shape, flat):
 
@@ -90,9 +97,6 @@ def center_mass(tensor_batch_sal):
     # take the sal out of the batch
     sal = tensor_batch_sal[0]
     shape = sal.get_shape().as_list() # usually (224, 224, 3)
-
-    # normalize the sal
-    sal /= tf.norm(sal)
 
     # flat the tensor
     flat = tf.reshape(sal, [-1])
@@ -114,7 +118,7 @@ def data(image_name):
     label_list = []
 
     # load in the original image and its adversarial examples
-    for image_path in glob.glob(os.path.join(data_dir, '{}.png'.format(image_name))):
+    for image_path in glob.glob(os.path.join(data_dir, '{}.JPEG'.format(image_name))):
         file_name = os.path.basename(image_path).split('.')[0]
         print('File name : {}').format(file_name)
         fns.append(file_name)
@@ -129,31 +133,39 @@ def data(image_name):
 
     return batch_img, batch_label, fns
 
-def normalize(img):
 
-    img = np.abs(img)
-    img /= np.sum(img)
-    img /= np.max(img)
+def diff(diff_type, network, batch_img, sal, sess):
 
-    return img
+    if diff_type == 'centermass':
 
-def evaluate_and_plot(ori_pre, network, sess, dict_image, dict_dissim, dict_salmap, iterations):
+        mass = center_mass(sal)
+        ref_mass_val = sess.run(mass, feed_dict={network.images: batch_img})
+        diff = mass - ref_mass_val
+        D = tf.sqrt(tf.reduce_sum(tf.multiply(diff, diff)))
 
-    save_dir = '/results/11152017/attack_sal/'
+    if diff_type == 'plain':
+
+        ref_sal_val = sess.run(sal, feed_dict={network.images: batch_img})
+        diff = sal - ref_sal_val
+        D = tf.sqrt(tf.reduce_sum(tf.multiply(diff, diff)))
+
+    return D
+
+def evaluate(dict_image, dict_dissim, dict_salmap, dict_predictions, iterations):
+
+    save_dir = 'results/11192017/attack_sal_GBP_centermass/'
 
     for i in range(iterations): # check each step
 
-        if i == 0: # skip the first step, no perturbation at all
-            continue
-
-        predictions = sess.run(network.probs, feed_dict={network.images: dict_image[i]})
-
-        if np.argmax(predictions) == ori_pre: # if the prediction doesn't change
+        if dict_predictions[i] == dict_predictions[0]: # if the prediction doesn't change
 
             print("We find one!")
 
-            img = normalize(dict_image[i])
-            sal = normalize(dict_salmap[i])
+            img = dict_image[i][0]
+            img -= np.min(img)
+            img /= np.max(img)
+
+            sal = dict_salmap[i][0]
 
             fig = plt.figure()
 
@@ -161,7 +173,7 @@ def evaluate_and_plot(ori_pre, network, sess, dict_image, dict_dissim, dict_salm
 
             ax = fig.add_subplot(gs[0, 0])
             ax.imshow(img)
-            ax.set_title('Ad_Input', fontsize=8)
+            ax.set_title('Ad_Input_{}'.format(i), fontsize=8)
             ax.tick_params(axis='both', which='major', labelsize=6)
 
             ax = fig.add_subplot(gs[0, 1])
@@ -174,33 +186,32 @@ def evaluate_and_plot(ori_pre, network, sess, dict_image, dict_dissim, dict_salm
                 os.makedirs(save_dir)
             plt.savefig(os.path.join(save_dir, "attack_{}.png".format(i)))
 
+            plt.close()
+
 
 def main():
 
-    num_iterations = 20
-    step_size = 1e-4
-    image_name = 'tabby'
+    num_iterations = 100
+    step_size = 1e-1
+    image_name = 'Dog_1'
+    diff_type = 'centermass'
 
     # load the image
     batch_img, batch_label, fns = data(image_name)
 
     sess = tf.Session()
 
-    # prepare the network
-    vgg = prepare_vgg('PlainSaliency', None, 'trained', sess)
+    # prepare the networks
+    vgg_attack = prepare_vgg('GuidedBackprop', 'softplus', 'maxpool', None, 'trained', sess) # used for attack
+    vgg = prepare_vgg('GuidedBackprop', 'relu', 'maxpool', None, 'trained', sess) # used for probing
 
-    sal = sal_maxlogit(vgg)
-    mass = center_mass(sal)
+    print('Two Networks Prepared ... ')
 
-    ref_mass_val, predictions = sess.run([mass, vgg.probs], feed_dict={vgg.images: batch_img})
-    original_pre = np.argmax(predictions)
-
-    # the objective function D
-    diff = mass - ref_mass_val
-    D = tf.reduce_sum(tf.multiply(diff, diff))
+    sal = sal_maxlogit(vgg_attack)
+    D = diff(diff_type, vgg_attack, batch_img, sal, sess)
 
     # gradient
-    Dx = tf.gradients(D, vgg.images)
+    Dx = tf.gradients(D, vgg_attack.images)[0]
 
     # the signed gradient
     Dx_sign = tf.sign(Dx)
@@ -209,6 +220,7 @@ def main():
     dict_step_to_image = {}
     dict_step_to_dissimilarity = {}
     dict_step_to_salmap = {}
+    dict_step_to_prediction = {}
 
     for step in range(num_iterations):
 
@@ -218,27 +230,28 @@ def main():
             dict_step_to_image[0] = batch_img
             dict_step_to_dissimilarity[0] = 0
             dict_step_to_salmap[0] = sess.run(sal_maxlogit(vgg), feed_dict={vgg.images: batch_img})
+            dict_step_to_prediction[0] = np.argmax(sess.run(vgg.probs, feed_dict={vgg.images: batch_img}))
             continue
 
-        D_val, Dx_sign_val, sal_map_val \
-            = sess.run([D, Dx_sign, sal_maxlogit(vgg)], feed_dict={vgg.images: dict_step_to_image[step - 1]})
+        Dx_sign_val, D_val = sess.run([Dx_sign, D], feed_dict={vgg_attack.images: dict_step_to_image[step - 1]})
+
+        sal_map_val, probs_val = sess.run([sal_maxlogit(vgg), vgg.probs], feed_dict={vgg.images: dict_step_to_image[step - 1]})
 
         dict_step_to_image[step] = dict_step_to_image[step - 1] + step_size * Dx_sign_val
         dict_step_to_salmap[step] = sal_map_val
         dict_step_to_dissimilarity[step] = D_val
+        dict_step_to_prediction[step] = np.argmax(probs_val)
 
-    evaluate_and_plot(original_pre,
-                      vgg,
-                      sess,
-                      dict_step_to_image,
-                      dict_step_to_dissimilarity,
-                      dict_step_to_salmap,
-                      num_iterations)
+    evaluate(dict_step_to_image,
+             dict_step_to_dissimilarity,
+             dict_step_to_salmap,
+             dict_step_to_prediction,
+             num_iterations)
 
     sess.close()
 
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '5'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '4, 3'
     main()
