@@ -48,6 +48,7 @@ def data(image_name):
     label_list = []
 
     # load in the original image and its adversarial examples
+
     for image_path in glob.glob(os.path.join(data_dir, '{}.jpg'.format(image_name))):
         file_name = os.path.basename(image_path).split('.')[0]
         print('File name : {}').format(file_name)
@@ -129,6 +130,7 @@ def job1(vgg, sal_type, sess, init, image_name):
     num_to_viz = 20
     for layer_name in layers:
 
+
         save_dir = "results/11132017/new_normalization/job1/{}/{}/{}/{}".format(image_name, init, sal_type, layer_name)
 
         saliencies = super_saliency(vgg.layers_dic[layer_name], vgg.images, num_to_viz)
@@ -201,7 +203,13 @@ def main():
     #             simple_plot(saliency_val, save_dir, layer)
     #             sess.close()
 
-
+    for init in ['trained', 'random']:
+        tf.reset_default_graph()
+        sess = tf.Session()
+        vgg = prepare_vgg('PlainSaliency', None, init, sess)
+        result = sparse_ratio(vgg, sess, 'fc1', 'tabby')
+        print('The sparse ratio of layer FC1 with {} weights is {}'.format(init, result))
+        sess.close()
 
 if __name__ == '__main__':
     # setup the GPUs to use
