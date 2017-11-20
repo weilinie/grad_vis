@@ -159,11 +159,10 @@ def sal_diff(diff_type, network, batch_img, sal, sess):
 
     return D
 
-def evaluate(image_name, diff_type, gradient_type, dict_image, dict_dissim, dict_salmap, dict_predictions, iterations):
+def evaluate(image_name, diff_type, gradient_type,
+             dict_image, dict_dissim, dict_salmap, dict_predictions, dict_perturb, iterations):
 
     save_dir = 'results/11202017/sal_attack_{}_{}_{}/'.format(image_name, diff_type, gradient_type)
-
-    ref_img = dict_image[0][0]
 
     for i in range(iterations): # check each step
 
@@ -172,7 +171,7 @@ def evaluate(image_name, diff_type, gradient_type, dict_image, dict_dissim, dict
             print("We find one!")
 
             img = dict_image[i][0]
-            perturbation = img - ref_img
+            perturbation = dict_perturb[i][0]
 
             perturbation_norm = np.max(perturbation)
 
@@ -216,7 +215,7 @@ def main():
     num_iterations = 100
     step_size = 1e-1
     image_name = 'Dog_1'
-    diff_type = 'centermass' # 'centermass', 'plain'
+    diff_type = 'plain' # 'centermass', 'plain'
     gradient_type = 'PlainSaliency' # 'PlainSaliency', 'GuidedBackprop'
 
     # load the image
@@ -244,6 +243,7 @@ def main():
     dict_step_to_dissimilarity = {}
     dict_step_to_salmap = {}
     dict_step_to_prediction = {}
+    dict_step_to_perturbation = {}
 
     for step in range(num_iterations):
 
@@ -254,6 +254,7 @@ def main():
             dict_step_to_dissimilarity[0] = 0
             dict_step_to_salmap[0] = sess.run(sal_maxlogit(vgg), feed_dict={vgg.images: batch_img})
             dict_step_to_prediction[0] = np.argmax(sess.run(vgg.probs, feed_dict={vgg.images: batch_img}))
+            dict_step_to_perturbation[0] = np.zeros(batch_img.shape)
             continue
 
         Dx_sign_val, D_val = sess.run([Dx_sign, D], feed_dict={vgg_attack.images: dict_step_to_image[step - 1]})
@@ -261,6 +262,7 @@ def main():
         sal_map_val, probs_val = sess.run([sal_maxlogit(vgg), vgg.probs], feed_dict={vgg.images: dict_step_to_image[step - 1]})
 
         dict_step_to_image[step] = dict_step_to_image[step - 1] + step_size * Dx_sign_val
+        dict_step_to_perturbation[step] = step_size * Dx_sign_val
         dict_step_to_salmap[step] = sal_map_val
         dict_step_to_dissimilarity[step] = D_val
         dict_step_to_prediction[step] = np.argmax(probs_val)
@@ -272,6 +274,7 @@ def main():
              dict_step_to_dissimilarity,
              dict_step_to_salmap,
              dict_step_to_prediction,
+             dict_step_to_perturbation,
              num_iterations)
 
     sess.close()
