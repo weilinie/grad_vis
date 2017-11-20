@@ -69,7 +69,8 @@ def sal_maxlogit(network):
 
     """
     network will be a vgg object
-    consistent with the visualization
+
+    saliency map must be consistent with the visualization
     """
 
     sal_ori = tf.gradients(network.maxlogit, network.images)[0]
@@ -134,26 +135,35 @@ def data(image_name):
     return batch_img, batch_label, fns
 
 
-def diff(diff_type, network, batch_img, sal, sess):
+def sal_diff(diff_type, network, batch_img, sal, sess):
 
     if diff_type == 'centermass':
 
+        # the criteria, a function of the saliency map
         mass = center_mass(sal)
-        ref_mass_val = sess.run(mass, feed_dict={network.images: batch_img})
-        diff = mass - ref_mass_val
+        # the reference value of the criteria on the original image without perturbation
+        ref_val = sess.run(mass, feed_dict={network.images: batch_img})
+        # the difference
+        diff = mass - ref_val # this is a graph node
         D = tf.sqrt(tf.reduce_sum(tf.multiply(diff, diff)))
 
     if diff_type == 'plain':
 
-        ref_sal_val = sess.run(sal, feed_dict={network.images: batch_img})
-        diff = sal - ref_sal_val
+        # In this case, we define no criteria on the saliency map, but use it directly instead
+
+        # the reference value of the criteria on the original image without perturbation
+        ref_val = sess.run(sal, feed_dict={network.images: batch_img})
+        # the difference
+        diff = sal - ref_val
         D = tf.sqrt(tf.reduce_sum(tf.multiply(diff, diff)))
 
     return D
 
-def evaluate(dict_image, dict_dissim, dict_salmap, dict_predictions, iterations):
+def evaluate(image_name, diff_type, gradient_type, dict_image, dict_dissim, dict_salmap, dict_predictions, iterations):
 
-    save_dir = 'results/11192017/attack_sal_GBP_centermass/'
+    save_dir = 'results/11202017/sal_attack_{}_{}_{}/'.format(image_name, diff_type, gradient_type)
+
+    ref_img = dict_image[0][0]
 
     for i in range(iterations): # check each step
 
@@ -162,14 +172,21 @@ def evaluate(dict_image, dict_dissim, dict_salmap, dict_predictions, iterations)
             print("We find one!")
 
             img = dict_image[i][0]
+            perturbation = img - ref_img
+
+            perturbation_norm = np.max(perturbation)
+
             img -= np.min(img)
             img /= np.max(img)
+
+            perturbation -= np.min(perturbation)
+            perturbation /= np.max(perturbation)
 
             sal = dict_salmap[i][0]
 
             fig = plt.figure()
 
-            gs = gridspec.GridSpec(1, 2, wspace=0.2, hspace=0.2)
+            gs = gridspec.GridSpec(1, 3, wspace=0.2, hspace=0.2)
 
             ax = fig.add_subplot(gs[0, 0])
             ax.imshow(img)
@@ -177,6 +194,11 @@ def evaluate(dict_image, dict_dissim, dict_salmap, dict_predictions, iterations)
             ax.tick_params(axis='both', which='major', labelsize=6)
 
             ax = fig.add_subplot(gs[0, 1])
+            ax.imshow(perturbation)
+            ax.set_title('Perturbation with norm = {}'.format(perturbation_norm), fontsize=8)
+            ax.tick_params(axis='both', which='major', labelsize=6)
+
+            ax = fig.add_subplot(gs[0, 2])
             ax.imshow(sal)
             ax.set_title('SalMap with dissimilarity = {}'.format(dict_dissim[i]), fontsize=8)
             ax.tick_params(axis='both', which='major', labelsize=6)
@@ -184,7 +206,7 @@ def evaluate(dict_image, dict_dissim, dict_salmap, dict_predictions, iterations)
             # save
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
-            plt.savefig(os.path.join(save_dir, "attack_{}.png".format(i)))
+            plt.savefig(os.path.join(save_dir, "attack{}_{}_{}_{}.png".format(i, image_name, diff_type, gradient_type)))
 
             plt.close()
 
@@ -194,7 +216,8 @@ def main():
     num_iterations = 100
     step_size = 1e-1
     image_name = 'Dog_1'
-    diff_type = 'centermass'
+    diff_type = 'centermass' # 'centermass', 'plain'
+    gradient_type = 'PlainSaliency' # 'PlainSaliency', 'GuidedBackprop'
 
     # load the image
     batch_img, batch_label, fns = data(image_name)
@@ -202,13 +225,13 @@ def main():
     sess = tf.Session()
 
     # prepare the networks
-    vgg_attack = prepare_vgg('GuidedBackprop', 'softplus', 'maxpool', None, 'trained', sess) # used for attack
-    vgg = prepare_vgg('GuidedBackprop', 'relu', 'maxpool', None, 'trained', sess) # used for probing
+    vgg_attack = prepare_vgg(gradient_type, 'softplus', 'maxpool', None, 'trained', sess) # used for attack
+    vgg = prepare_vgg(gradient_type, 'relu', 'maxpool', None, 'trained', sess) # used for probing
 
     print('Two Networks Prepared ... ')
 
     sal = sal_maxlogit(vgg_attack)
-    D = diff(diff_type, vgg_attack, batch_img, sal, sess)
+    D = sal_diff(diff_type, vgg_attack, batch_img, sal, sess)
 
     # gradient
     Dx = tf.gradients(D, vgg_attack.images)[0]
@@ -242,7 +265,10 @@ def main():
         dict_step_to_dissimilarity[step] = D_val
         dict_step_to_prediction[step] = np.argmax(probs_val)
 
-    evaluate(dict_step_to_image,
+    evaluate(image_name,
+             diff_type,
+             gradient_type,
+             dict_step_to_image,
              dict_step_to_dissimilarity,
              dict_step_to_salmap,
              dict_step_to_prediction,
