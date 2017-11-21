@@ -87,6 +87,12 @@ def sal_maxlogit(network, sal_type, target_conv_layer):
 
         # the target conv layer
         tcl = network.layers_dic[target_conv_layer] # [none, w, h, num_filters]
+
+        # shape and dimension
+        shape = tcl.get_shape().as_list()
+        num_filters = shape[-1]
+        w = shape[1]
+        h = shape[2]
         
         # the gradient w.r.t the target conv layer
         tcl_grad = tf.gradients(network.maxlogit, tcl)[0]
@@ -96,35 +102,45 @@ def sal_maxlogit(network, sal_type, target_conv_layer):
         # the importance of the filters (called weights here)
         weights_temp1 = tf.reduce_mean(tcl_grad_norm, axis=1, keep_dims=True) # [none, 1, h, num_filters]
         weights_temp2 = tf.reduce_mean(weights_temp1, axis=2, keep_dims=True) # [none, 1, 1, num_filters]
-        weights = tf.reshape(weights_temp2, [-1, 512]) # [none, num_filters]
+        weights = tf.reshape(weights_temp2, [-1, num_filters]) # [none, num_filters]
 
         # calculate the cam
-        indices = tf.constant(range(512))
+        indices = tf.constant(range(num_filters))
         # a list of tensors
         cam_list = tf.map_fn(lambda x: weights[0][x] * tcl[0][:, :, x], indices, dtype=tf.float32)
         # stack to one single tensor
-        cam_matrix = tf.stack(cam_list)
-        # reduce sum along axis=0
-        cam_2D = tf.expand_dims(tf.reduce_sum(cam_matrix, axis=0), -1) # [w, h, 1]
+        cam_matrix = tf.stack(cam_list) # [num_filters, w, h]
+        # reduce sum
+        cam_2D = tf.reduce_sum(cam_matrix, axis=0) # [w, h]
+        # reshape to include the channel
+        cam_reshape = tf.reshape(cam_2D, [w, h, 1]) # [w, h, 1] # need this channel 1 in order to resize
         # Passing through ReLU
-        cam_relu = tf.nn.relu(cam_2D)
+        cam_relu = tf.nn.relu(cam_reshape)
         # normalize
         cam_norm = cam_relu / tf.reduce_max(cam_relu)
         # resize to [224, 224, 1]
-        cam_final = tf.image.resize_images(cam_norm, [224, 224]) # [224, 224, 1]
+        cam_resize = tf.image.resize_images(cam_norm, [224, 224]) # [224, 224, 1]
+        # reshape back to [224, 224]
+        cam = tf.reshape(cam_resize, [224, 224])
+
 
         # the "abs saliency map"
         sal_ori = tf.gradients(network.maxlogit, network.images)[0] # [none, 224, 224, 3]
-        sal_abs = tf.abs(sal_ori)
-        # normalize
-        sal_norm = sal_abs / tf.reduce_sum(sal_abs)
-        sal = sal_norm / tf.reduce_max(sal_norm)
+        # sal_abs = tf.abs(sal_ori)
+        # # normalize
+        # sal_norm = sal_abs / tf.reduce_sum(sal_abs)
+        # sal = sal_norm / tf.reduce_max(sal_norm)
+        sal_shifted = sal_ori - tf.reduce_min(sal_ori)
+        sal = sal_shifted / tf.reduce_max(sal_shifted)
 
-        grad_cam = tf.concat((
-            sal[:, :, :, 0] * cam_final,
-            sal[:, :, :, 1] * cam_final,
-            sal[:, :, :, 2] * cam_final,
-        ), axis=0)
+        # mask two together
+        indices = tf.constant(range(3)) # three channels
+        result_list = tf.map_fn(lambda i : tf.multiply(sal[0][:, :, i], cam), indices, dtype=tf.float32) # a list of [224, 224]
+        grad_cam_matrix = tf.stack(result_list) # [3, 224, 224]
+        grad_cam_trans = tf.transpose(grad_cam_matrix, [1, 2, 0])
+        grad_cam = tf.expand_dims(grad_cam_trans, axis=0)
+
+        # print(grad_cam.get_shape().as_list())
 
         return grad_cam / tf.reduce_max(grad_cam)
 
@@ -209,7 +225,7 @@ def sal_diff(diff_type, network, batch_img, sal, sess):
 def evaluate(image_name, diff_type, gradient_type,
              dict_image, dict_dissim, dict_salmap, dict_predictions, dict_perturb, iterations):
 
-    save_dir = 'results/11202017/sal_attack_{}_{}_{}/'.format(image_name, diff_type, gradient_type)
+    save_dir = 'results/11212017/sal_attack_{}_{}_{}/'.format(image_name, diff_type, gradient_type)
 
     for i in range(iterations): # check each step
 
@@ -263,8 +279,8 @@ def main():
     step_size = 1e-1
     image_name = 'Dog_1'
     diff_type = 'plain' # 'centermass', 'plain'
-    gradient_type = 'PlainSaliency' # 'PlainSaliency', 'GuidedBackprop'
-    sal_type = 'gradcam'
+    gradient_type = 'GuidedBackprop' # 'PlainSaliency', 'GuidedBackprop'
+    sal_type = 'gradcam' # 'abs', 'plain', 'gradcam' (GBP is achieved by overwriting the gradient so is not an option here)
     target_layer = 'pool5'
 
     # load the image
