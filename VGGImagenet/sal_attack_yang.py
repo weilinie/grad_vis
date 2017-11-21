@@ -65,20 +65,68 @@ def prepare_vgg(sal_type, act_type, pool_type, layer_idx, load_weights, sess):
 
     return vgg
 
-def sal_maxlogit(network):
+def sal_maxlogit(network, sal_type, target_conv_layer):
 
     """
-    network will be a vgg object
-
+    the network will be a vgg object
     saliency map must be consistent with the visualization
     """
 
-    sal_ori = tf.gradients(network.maxlogit, network.images)[0]
-    sal_abs = tf.abs(sal_ori)
-    sal_norm1 = sal_abs / tf.reduce_sum(sal_abs)
-    sal_norm2 = sal_norm1 / tf.reduce_max(sal_norm1)
+    if sal_type == 'abs':
+        sal_ori = tf.gradients(network.maxlogit, network.images)[0]
+        sal_abs = tf.abs(sal_ori)
+        sal_norm1 = sal_abs / tf.reduce_sum(sal_abs)
+        return sal_norm1 / tf.reduce_max(sal_norm1)
 
-    return sal_norm2
+    elif sal_type == 'plain':
+        sal_ori = tf.gradients(network.maxlogit, network.images)[0]
+        sal_shift = sal_ori - tf.reduce_min(sal_ori)
+        return sal_shift / tf.reduce_max(sal_shift)
+
+    elif sal_type == 'gradcam':
+
+        # the target conv layer
+        tcl = network.layers_dic[target_conv_layer] # [none, w, h, num_filters]
+        
+        # the gradient w.r.t the target conv layer
+        tcl_grad = tf.gradients(network.maxlogit, tcl)[0]
+        # normalize
+        tcl_grad_norm = tcl_grad / tf.norm(tcl_grad) # [none, w, h, num_filters]
+
+        # the importance of the filters (called weights here)
+        weights_temp1 = tf.reduce_mean(tcl_grad_norm, axis=1, keep_dims=True) # [none, 1, h, num_filters]
+        weights_temp2 = tf.reduce_mean(weights_temp1, axis=2, keep_dims=True) # [none, 1, 1, num_filters]
+        weights = tf.reshape(weights_temp2, [-1, 512]) # [none, num_filters]
+
+        # calculate the cam
+        indices = tf.constant(range(512))
+        # a list of tensors
+        cam_list = tf.map_fn(lambda x: weights[0][x] * tcl[0][:, :, x], indices, dtype=tf.float32)
+        # stack to one single tensor
+        cam_matrix = tf.stack(cam_list)
+        # reduce sum along axis=0
+        cam_2D = tf.expand_dims(tf.reduce_sum(cam_matrix, axis=0), -1) # [w, h, 1]
+        # Passing through ReLU
+        cam_relu = tf.nn.relu(cam_2D)
+        # normalize
+        cam_norm = cam_relu / tf.reduce_max(cam_relu)
+        # resize to [224, 224, 1]
+        cam_final = tf.image.resize_images(cam_norm, [224, 224]) # [224, 224, 1]
+
+        # the "abs saliency map"
+        sal_ori = tf.gradients(network.maxlogit, network.images)[0] # [none, 224, 224, 3]
+        sal_abs = tf.abs(sal_ori)
+        # normalize
+        sal_norm = sal_abs / tf.reduce_sum(sal_abs)
+        sal = sal_norm / tf.reduce_max(sal_norm)
+
+        grad_cam = tf.concat((
+            sal[:, :, :, 0] * cam_final,
+            sal[:, :, :, 1] * cam_final,
+            sal[:, :, :, 2] * cam_final,
+        ), axis=0)
+
+        return grad_cam / tf.reduce_max(grad_cam)
 
 def helper(idx, shape, flat):
 
@@ -133,7 +181,6 @@ def data(image_name):
     batch_label = np.array(label_list)
 
     return batch_img, batch_label, fns
-
 
 def sal_diff(diff_type, network, batch_img, sal, sess):
 
@@ -217,6 +264,8 @@ def main():
     image_name = 'Dog_1'
     diff_type = 'plain' # 'centermass', 'plain'
     gradient_type = 'PlainSaliency' # 'PlainSaliency', 'GuidedBackprop'
+    sal_type = 'gradcam'
+    target_layer = 'pool5'
 
     # load the image
     batch_img, batch_label, fns = data(image_name)
@@ -229,7 +278,7 @@ def main():
 
     print('Two Networks Prepared ... ')
 
-    sal = sal_maxlogit(vgg_attack)
+    sal = sal_maxlogit(vgg_attack, sal_type, target_layer)
     D = sal_diff(diff_type, vgg_attack, batch_img, sal, sess)
 
     # gradient
@@ -252,14 +301,14 @@ def main():
         if step == 0:
             dict_step_to_image[0] = batch_img
             dict_step_to_dissimilarity[0] = 0
-            dict_step_to_salmap[0] = sess.run(sal_maxlogit(vgg), feed_dict={vgg.images: batch_img})
+            dict_step_to_salmap[0] = sess.run(sal_maxlogit(vgg, sal_type, target_layer), feed_dict={vgg.images: batch_img})
             dict_step_to_prediction[0] = np.argmax(sess.run(vgg.probs, feed_dict={vgg.images: batch_img}))
             dict_step_to_perturbation[0] = np.zeros(batch_img.shape)
             continue
 
         Dx_sign_val, D_val = sess.run([Dx_sign, D], feed_dict={vgg_attack.images: dict_step_to_image[step - 1]})
 
-        sal_map_val, probs_val = sess.run([sal_maxlogit(vgg), vgg.probs], feed_dict={vgg.images: dict_step_to_image[step - 1]})
+        sal_map_val, probs_val = sess.run([sal_maxlogit(vgg, sal_type, target_layer), vgg.probs], feed_dict={vgg.images: dict_step_to_image[step - 1]})
 
         dict_step_to_image[step] = dict_step_to_image[step - 1] + step_size * Dx_sign_val
         dict_step_to_perturbation[step] = step_size * Dx_sign_val
@@ -269,7 +318,7 @@ def main():
 
     evaluate(image_name,
              diff_type,
-             gradient_type,
+             sal_type,
              dict_step_to_image,
              dict_step_to_dissimilarity,
              dict_step_to_salmap,
@@ -282,5 +331,5 @@ def main():
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '4, 3'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '5, 6'
     main()
