@@ -124,12 +124,16 @@ def sal_maxlogit(network, sal_type, target_conv_layer):
         cam = tf.reshape(cam_resize, [224, 224])
 
 
-        # the "abs saliency map"
+
         sal_ori = tf.gradients(network.maxlogit, network.images)[0] # [none, 224, 224, 3]
+
+        # the "abs saliency map"
         # sal_abs = tf.abs(sal_ori)
         # # normalize
         # sal_norm = sal_abs / tf.reduce_sum(sal_abs)
         # sal = sal_norm / tf.reduce_max(sal_norm)
+
+        # the plain saliency map
         sal_shifted = sal_ori - tf.reduce_min(sal_ori)
         sal = sal_shifted / tf.reduce_max(sal_shifted)
 
@@ -278,9 +282,17 @@ def main():
     num_iterations = 100
     step_size = 1e-1
     image_name = 'Dog_1'
+
+    # how we would like the "saliency map" be different
     diff_type = 'plain' # 'centermass', 'plain'
+
+    # define the special gradient for the "saliency map" calculation if necessary
     gradient_type = 'GuidedBackprop' # 'PlainSaliency', 'GuidedBackprop'
-    sal_type = 'gradcam' # 'abs', 'plain', 'gradcam' (GBP is achieved by overwriting the gradient so is not an option here)
+
+    # how we would like to visualize the result gradient
+    viz_type = 'gradcam' # 'abs', 'plain', 'gradcam'
+
+    # for gradcam only
     target_layer = 'pool5'
 
     # load the image
@@ -294,7 +306,7 @@ def main():
 
     print('Two Networks Prepared ... ')
 
-    sal = sal_maxlogit(vgg_attack, sal_type, target_layer)
+    sal = sal_maxlogit(vgg_attack, viz_type, target_layer)
     D = sal_diff(diff_type, vgg_attack, batch_img, sal, sess)
 
     # gradient
@@ -317,14 +329,14 @@ def main():
         if step == 0:
             dict_step_to_image[0] = batch_img
             dict_step_to_dissimilarity[0] = 0
-            dict_step_to_salmap[0] = sess.run(sal_maxlogit(vgg, sal_type, target_layer), feed_dict={vgg.images: batch_img})
+            dict_step_to_salmap[0] = sess.run(sal_maxlogit(vgg, viz_type, target_layer), feed_dict={vgg.images: batch_img})
             dict_step_to_prediction[0] = np.argmax(sess.run(vgg.probs, feed_dict={vgg.images: batch_img}))
             dict_step_to_perturbation[0] = np.zeros(batch_img.shape)
             continue
 
         Dx_sign_val, D_val = sess.run([Dx_sign, D], feed_dict={vgg_attack.images: dict_step_to_image[step - 1]})
 
-        sal_map_val, probs_val = sess.run([sal_maxlogit(vgg, sal_type, target_layer), vgg.probs], feed_dict={vgg.images: dict_step_to_image[step - 1]})
+        sal_map_val, probs_val = sess.run([sal_maxlogit(vgg, viz_type, target_layer), vgg.probs], feed_dict={vgg.images: dict_step_to_image[step - 1]})
 
         dict_step_to_image[step] = dict_step_to_image[step - 1] + step_size * Dx_sign_val
         dict_step_to_perturbation[step] = step_size * Dx_sign_val
@@ -334,7 +346,7 @@ def main():
 
     evaluate(image_name,
              diff_type,
-             sal_type,
+             viz_type,
              dict_step_to_image,
              dict_step_to_dissimilarity,
              dict_step_to_salmap,
