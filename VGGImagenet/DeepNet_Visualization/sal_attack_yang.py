@@ -1,69 +1,14 @@
 from scipy.misc import imread, imresize
-import os
+import os, sys
+sys.path.append('/home/yang/open-convnet-black-box/VGGImagenet/')
+from Prepare_Model import prepare_vgg
+from Prepare_Data import list_load
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.framework import ops
-from tensorflow.python.ops import gen_nn_ops
 np.set_printoptions(threshold=np.nan)
-import glob
-from vgg16 import Vgg16
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt, gridspec
-
-@ops.RegisterGradient("GuidedRelu")
-def _GuidedReluGrad(op, grad):
-    return tf.where(0. < grad, gen_nn_ops._relu_grad(grad, op.outputs[0]), tf.zeros(tf.shape(grad)))
-
-@ops.RegisterGradient("DeconvRelu")
-def _DeconvGrad(op, grad):
-    return tf.where(0. < grad, grad, tf.zeros(tf.shape(grad)))
-
-def prepare_vgg(sal_type, act_type, pool_type, layer_idx, load_weights, sess):
-
-    # construct the graph based on the gradient type we want
-    if sal_type == 'GuidedBackprop':
-        eval_graph = tf.get_default_graph()
-        with eval_graph.gradient_override_map({'Relu': 'GuidedRelu'}):
-            vgg = Vgg16(sess=sess, act_type=act_type, pool_type=pool_type)
-
-    elif sal_type == 'Deconv':
-        eval_graph = tf.get_default_graph()
-        with eval_graph.gradient_override_map({'Relu': 'DeconvRelu'}):
-            vgg = Vgg16(sess=sess, act_type=act_type, pool_type=pool_type)
-
-    elif sal_type == 'PlainSaliency':
-        vgg = Vgg16(sess=sess, act_type=act_type, pool_type=pool_type)
-
-    else:
-        raise Exception("Unknown saliency_map type - 1")
-
-    # different options for loading weights
-    if load_weights == 'trained':
-        vgg.load_weights('vgg16_weights.npz', sess)
-
-    elif load_weights == 'random':
-        vgg.init(sess)
-
-    elif load_weights == 'part':
-        # fill the first "idx" layers with the trained weights
-        # randomly initialize the rest
-        vgg.load_weights_part(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
-
-    elif load_weights == 'reverse':
-        # do not fill the first "idx" layers with the trained weights
-        # randomly initialize them
-        vgg.load_weights_reverse(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
-
-    elif load_weights == 'only':
-        # do not load a specific layer ("idx") with the trained weights
-        # randomly initialize it
-        vgg.load_weights_only(layer_idx * 2 + 1, 'vgg16_weights.npz', sess)
-
-    else:
-        raise Exception("Unknown load_weights type - 1")
-
-    return vgg
 
 def sal_maxlogit(network, sal_type, target_conv_layer):
 
@@ -178,30 +123,6 @@ def center_mass(tensor_batch_sal):
 
     return tf.reduce_sum(tensor, axis=0)
 
-def data(image_name):
-
-    data_dir = "data_imagenet"
-
-    fns = []
-    image_list = []
-    label_list = []
-
-    # load in the original image and its adversarial examples
-    for image_path in glob.glob(os.path.join(data_dir, '{}.JPEG'.format(image_name))):
-        file_name = os.path.basename(image_path).split('.')[0]
-        print('File name : {}').format(file_name)
-        fns.append(file_name)
-        image = imread(image_path, mode='RGB')
-        image = imresize(image, (224, 224)).astype(np.float32)
-        image_list.append(image)
-        onehot_label = np.array([1 if i == 1 else 0 for i in range(1000)])
-        label_list.append(onehot_label)
-
-    batch_img = np.array(image_list)
-    batch_label = np.array(label_list)
-
-    return batch_img, batch_label, fns
-
 def sal_diff(diff_type, network, batch_img, sal, sess):
 
     if diff_type == 'centermass':
@@ -276,18 +197,17 @@ def evaluate(image_name, diff_type, gradient_type,
 
             plt.close()
 
-
 def main():
 
     num_iterations = 100
     step_size = 1e-1
-    image_name = 'Dog_1'
+    image_name = 'Dog_1.JPEG'
 
     # how we would like the "saliency map" be different
     diff_type = 'plain' # 'centermass', 'plain'
 
     # define the special gradient for the "saliency map" calculation if necessary
-    gradient_type = 'GuidedBackprop' # 'PlainSaliency', 'GuidedBackprop'
+    gradient_type = 'PlainSaliency' # 'PlainSaliency', 'GuidedBackprop'
 
     # how we would like to visualize the result gradient
     viz_type = 'gradcam' # 'abs', 'plain', 'gradcam'
@@ -296,7 +216,7 @@ def main():
     target_layer = 'pool5'
 
     # load the image
-    batch_img, batch_label, fns = data(image_name)
+    batch_img, fns = list_load("./../data_imagenet", [image_name])
 
     sess = tf.Session()
 
