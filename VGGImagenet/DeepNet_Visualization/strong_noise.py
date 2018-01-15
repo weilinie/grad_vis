@@ -10,26 +10,26 @@ from Plot import simple_plot
 
 sal_type = [
     # 'PlainSaliency',
-    'Deconv',
-    # 'GuidedBackprop'
+    # 'Deconv',
+    'GuidedBackprop'
 ]
 
 layers = [
-    'conv1_1',
-    'conv1_2',
-    'conv2_1',
-    'conv2_2',
-    'conv3_1',
-    'conv3_2',
-    'conv3_3',
-    'conv4_1',
-    'conv4_2',
-    'conv4_3',
-    'conv5_1',
-    'conv5_2',
-    'conv5_3',
-    'fc1',
-    'fc2',
+    # 'conv1_1',
+    # 'conv1_2',
+    # 'conv2_1',
+    # 'conv2_2',
+    # 'conv3_1',
+    # 'conv3_2',
+    # 'conv3_3',
+    # 'conv4_1',
+    # 'conv4_2',
+    # 'conv4_3',
+    # 'conv5_1',
+    # 'conv5_2',
+    # 'conv5_3',
+    # 'fc1',
+    # 'fc2',
     'fc3'
 ]
 
@@ -61,7 +61,7 @@ def job(vgg, sal_type, sess, init, batch_img, fns):
     # second: pick num_to_viz neurons from this layer
     # third: calculate the saliency map w.r.t self.imgs for each picked neuron
 
-    num_to_viz = 100
+    num_to_viz = 20
     for layer_name in layers:
 
         # shape = (num_to_viz, num_input_images, 224, 224, 3)
@@ -88,7 +88,8 @@ def main():
 
             batch_img, fns = list_load("./../data_imagenet", images)
             for idx, image in enumerate(batch_img):
-                job(vgg, sal, sess, init, np.expand_dims(image, axis=0), [fns[idx]])
+                noise_image = image + np.random.normal(loc=0.0, scale=10.0, size=[224, 224, 3])
+                job(vgg, sal, sess, init, np.expand_dims(noise_image, axis=0), [fns[idx] + '_noisy'])
 
             sess.close()
 
