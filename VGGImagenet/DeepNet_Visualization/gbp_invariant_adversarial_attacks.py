@@ -6,11 +6,11 @@ import tensorflow as tf
 from Prepare_Model import prepare_vgg
 from Prepare_Data import list_load
 from imagenet_classes import class_names
-from Plot import grid_plot
+from Plot import simple_plot
 
 sal_type = [
     # 'PlainSaliency',
-    # 'Deconv',
+    'Deconv',
     'GuidedBackprop'
 ]
 
@@ -20,8 +20,11 @@ model_type = [
 ]
 
 images = [
+    'laska',
     'laska_adv_SalMap_mis.png',
+    'mastiff.png',
     'mastiff_adv_IterGS.png',
+    'tabby.png',
     'tabby_adv_FGSM_topkmis.png'
 ]
 
@@ -38,13 +41,10 @@ def job(vgg, sal_type, sess, init, batch_img, fns):
     probs_val = sess.run(vgg.probs, feed_dict={vgg.images: batch_img})
     predictions = [class_names[np.argmax(vec)] for vec in probs_val]
 
-    save_dir = './results/'
+    save_dir = './adv_results/'
     for idx, name in enumerate(fns):
-        grid_plot([1, 2],
-                  [batch_img[idx], saliencies_val[idx]],
-                  'Predict to {}'.format(predictions[idx]),
-                  save_dir,
-                  name + '_adv_gbp')
+        simple_plot(batch_img[idx], name, save_dir)
+        simple_plot(saliencies_val[idx], name + '_{}'.format(predictions[idx]), save_dir)
 
 
 
