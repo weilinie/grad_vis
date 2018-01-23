@@ -134,7 +134,7 @@ def experiment_ahat_prediction(sess, batch_fns, batch_img, vgg_trained, batch_si
 
 def main():
 
-    is_BR = False
+    is_BR = True
 
     folders = ['Imagenet_Dogs',
                'Imagenet_Cats']
@@ -145,28 +145,29 @@ def main():
 
         # save_dir = "results/10072017/"
         #
-        # layers = [
-        #           'conv1_1',
-        #           'conv1_2',
-        #           'pool1',
-        #           'conv2_1',
-        #           'conv2_2',
-        #           'pool2',
-        #           'conv3_1',
-        #           'conv3_2',
-        #           'conv3_3',
-        #           'pool3',
-        #           'conv4_1',
-        #           'conv4_2',
-        #           'conv4_3',
-        #           'pool4',
-        #           'conv5_1',
-        #           'conv5_2',
-        #           'conv5_3',
-        #           'pool5',
-        #           'fc1',
-        #           'fc2',
-        #           'fc3']
+
+        layers = [
+                  'conv1_1',
+                  'conv1_2',
+                  'pool1',
+                  'conv2_1',
+                  'conv2_2',
+                  'pool2',
+                  'conv3_1',
+                  'conv3_2',
+                  'conv3_3',
+                  'pool3',
+                  'conv4_1',
+                  'conv4_2',
+                  'conv4_3',
+                  'pool4',
+                  'conv5_1',
+                  'conv5_2',
+                  'conv5_3',
+                  'pool5',
+                  'fc1',
+                  'fc2',
+                  'fc3']
 
         fns = []
         image_list = []
@@ -193,11 +194,11 @@ def main():
         vgg_trained = Vgg16('vgg16_weights.npz', False, sess)
         # vgg_not_trained = Vgg16('vgg16_weights.npz', True, sess)
 
-        # Experiment 1
-        experiment_common_features(sess, batch_fns, batch_img, vgg_trained, batch_size, folder_name)
-
-        # Experiment 2
-        experiment_ahat_prediction(sess, batch_fns, batch_img, vgg_trained, batch_size, folder_name)
+        # # Experiment 1
+        # experiment_common_features(sess, batch_fns, batch_img, vgg_trained, batch_size, folder_name)
+        #
+        # # Experiment 2
+        # experiment_ahat_prediction(sess, batch_fns, batch_img, vgg_trained, batch_size, folder_name)
 
     # vgg_not_trained = Vgg16('vgg16_weights.npz', True, sess)
 
@@ -244,24 +245,24 @@ def main():
 
 
 
-    # firing_arg = 'ahat'  # can be 'plain' or 'ahat'
-    # similarity_arg = 'jaccard'  # can be 'allclose' or 'jaccard'
+    firing_arg = 'ahat'  # can be 'plain' or 'ahat'
+    similarity_arg = 'jaccard'  # can be 'allclose' or 'jaccard'
 
     # f = open('log_{}_{}_{}.txt'.format(folder_name, firing_arg, similarity_arg), 'w')
     # sys.stdout = f
 
-    # for i in range(batch_size):
-    #     result = []
-    #     firing_states = []
-    #     for layer in layers:
-    #         temp = compare(vgg_trained.layers_dic[layer],
-    #                        reference_image, batch_img[i],
-    #                        sess, vgg_trained.imgs,
-    #                        firing_arg, similarity_arg)
-    #         result.append(temp)
-    #     print("Image_idx = {}, Invariance = {}".format(i, result))
-    #     probs_val = sess.run(vgg_trained.probs, feed_dict={vgg_trained.imgs: np.reshape(batch_img[i], (1, 224, 224, 3))})
-    #     print("Predict class : {}".format(class_names[np.argmax(probs_val)]))
+    for i in range(batch_size):
+        result = []
+        firing_states = []
+        for layer in layers:
+            temp = compare(vgg_trained.layers_dic[layer],
+                           reference_image, batch_img[i],
+                           sess, vgg_trained.imgs,
+                           firing_arg, similarity_arg)
+            result.append(temp)
+        print("Image_idx = {}, Invariance = {}".format(i, result))
+        # probs_val = sess.run(vgg_trained.probs, feed_dict={vgg_trained.imgs: np.reshape(batch_img[i], (1, 224, 224, 3))})
+        # print("Predict class : {}".format(class_names[np.argmax(probs_val)]))
 
 
 if __name__ == '__main__':

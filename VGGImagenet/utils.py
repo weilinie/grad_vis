@@ -119,28 +119,7 @@ def visualize_yang(batch_img, num_neurons, neuron_saliencies, layer_name, sal_ty
                                  .format(layer_name, idx, sal_type, fn)))
         plt.close()
 
-def simple_plot(sal, save_dir, layer_name):
 
-    img = sal[0]
-
-    # min = np.min(img)
-    # img -= min
-    # max = np.max(img)
-    # img /= max
-
-    img = np.abs(img)
-    img /= np.sum(img)
-    img /= np.max(img)
-
-    plt.imshow(img)
-
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-
-    plt.savefig(os.path.join(save_dir,
-                             "{}.png"
-                             .format(layer_name)))
-    plt.close()
 
 
 
