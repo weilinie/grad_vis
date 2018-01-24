@@ -3,49 +3,49 @@ sys.path.append('/home/yang/open-convnet-black-box/VGGImagenet/')
 sys.path.append('/home/yang/open-convnet-black-box/VGGImagenet/Tools/')
 import numpy as np
 import tensorflow as tf
-from Prepare_Model import prepare_vgg
+from Prepare_Model import prepare_vgg, prepare_resnet
 from Prepare_Data import list_load
 np.set_printoptions(threshold=np.nan)
 from  Plot import  simple_plot
 
 sal_type = [
-#    'PlainSaliency',
-#    'Deconv',
+   'PlainSaliency',
+   'Deconv',
     'GuidedBackprop'
 ]
 
 layers = [
-    'conv1_1',
-    'conv1_2',
-    'conv2_1',
-    'conv2_2',
-    'conv3_1',
-    'conv3_2',
-    'conv3_3',
-    'conv4_1',
-    'conv4_2',
-    'conv4_3',
-    'conv5_1',
-    'conv5_2',
-    'conv5_3',
-    'fc1',
-    'fc2',
+    # 'conv1_1',
+    # 'conv1_2',
+    # 'conv2_1',
+    # 'conv2_2',
+    # 'conv3_1',
+    # 'conv3_2',
+    # 'conv3_3',
+    # 'conv4_1',
+    # 'conv4_2',
+    # 'conv4_3',
+    # 'conv5_1',
+    # 'conv5_2',
+    # 'conv5_3',
+    # 'fc1',
+    # 'fc2',
     'fc3'
 ]
 
 model_type = [
-    'trained',
+    # 'trained',
     'random'
 ]
 
 images = [
-    'Dog_1.JPEG',
-    'Dog_2.JPEG',
-    'Dog_3.JPEG',
+    # 'Dog_1.JPEG',
+    # 'Dog_2.JPEG',
+    # 'Dog_3.JPEG',
     'Dog_4.JPEG',
-    'Dog_5.JPEG',
+    # 'Dog_5.JPEG',
     'tabby.png',
-    'laska.png'
+    # 'laska.png'
 ]
 
 def super_saliency(tensor, inputs, num_to_viz):
@@ -63,7 +63,7 @@ def job(vgg, sal_type, sess, init, batch_img, fns):
     # second: pick num_to_viz neurons from this layer
     # third: calculate the saliency map w.r.t self.imgs for each picked neuron
 
-    num_to_viz = 100
+    num_to_viz = 50
     for layer_name in layers:
 
         print(layer_name)
@@ -77,7 +77,7 @@ def job(vgg, sal_type, sess, init, batch_img, fns):
         saliencies_val_trans = np.transpose(saliencies_val, (1, 0, 2, 3, 4))
 
         for idx, name in enumerate(fns):
-            save_dir = "viz_by_layer/{}/{}/{}/{}".format(name, init, sal_type, layer_name)
+            save_dir = "resnet/{}/{}/{}/{}".format(name, init, sal_type, layer_name)
             for index, sal in enumerate(saliencies_val_trans[idx]):
                 if np.count_nonzero(sal):
                     simple_plot(sal, "_" + str(index), save_dir)
@@ -88,15 +88,15 @@ def main():
         for init in model_type:
             tf.reset_default_graph()
             sess = tf.Session()
-            vgg = prepare_vgg(sal, None, init, sess)
+            resnet = prepare_resnet(sal, None, init, sess)
 
             batch_img, fns = list_load("./../data_imagenet", images)
-            job(vgg, sal, sess, init, batch_img, fns)
+            job(resnet, sal, sess, init, batch_img, fns)
 
             sess.close()
 
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     main()
