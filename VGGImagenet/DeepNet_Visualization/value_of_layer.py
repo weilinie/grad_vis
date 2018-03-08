@@ -1,16 +1,15 @@
 import os, sys
 sys.path.append('/home/yang/open-convnet-black-box/VGGImagenet/')
-import numpy as np
+sys.path.append('/home/yang/open-convnet-black-box/VGGImagenet/Tools/')
 import tensorflow as tf
 from Prepare_Model import prepare_vgg
 from Prepare_Data import list_load
-np.set_printoptions(threshold=np.nan)
-from utils import simple_plot
+from Plot import simple_plot
 
 sal_type = [
-    'PlainSaliency',
+    # 'PlainSaliency',
     # 'Deconv',
-    # 'GuidedBackprop'
+    'GuidedBackprop'
 ]
 
 layers = [
@@ -37,7 +36,9 @@ images = [
     'Dog_2.JPEG',
     'Dog_3.JPEG',
     'Dog_4.JPEG',
-    'Dog_5.JPEG'
+    'Dog_5.JPEG',
+    'tabby.png',
+    'laska.png'
 ]
 
 def main():
@@ -47,7 +48,7 @@ def main():
 
             tf.reset_default_graph()
             sess = tf.Session()
-            vgg = prepare_vgg(sal, idx, 'part', sess)
+            vgg = prepare_vgg(sal, idx, 'only', sess)
 
             batch_img, fns = list_load("./../data_imagenet", images)
 
@@ -56,13 +57,13 @@ def main():
             saliency_vals = sess.run(saliency, feed_dict={vgg.images: batch_img})
 
             for index, name in enumerate(fns):
-                save_dir = 'results/{}/{}/{}'.format(name, sal, layer)
-                simple_plot(saliency_vals[index], save_dir, layer)
+                save_dir = 'value_only/{}/{}'.format(name, layer)
+                simple_plot(saliency_vals[index], name + '_only_' + layer, save_dir)
 
             sess.close()
 
 
 if __name__ == '__main__':
     # setup the GPUs to use
-    os.environ['CUDA_VISIBLE_DEVICES'] = '6'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '5'
     main()

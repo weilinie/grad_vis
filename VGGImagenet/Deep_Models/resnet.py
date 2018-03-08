@@ -6,7 +6,7 @@ tf.set_random_seed(1234)
 
 class Resnet(object):
 
-    def __init__(self, act_type='relu', pool_type='maxpool', res_blocks=5, reuse='True', num_labels=1000):
+    def __init__(self, act_type='relu', pool_type='maxpool', res_blocks=5, reuse=False, num_labels=1000):
 
         """
         Construct a Resnet object.
@@ -45,13 +45,11 @@ class Resnet(object):
         self.cost = tf.reduce_sum((self.probs - self.labels) ** 2)
         self.maxlogit = tf.reduce_max(self.logits, axis=1)
 
-        print("ResNet has not been initialized yet ... ")
-
     def build(self):
 
-        # we are stacking the layers one by one
+        # we are stacking the layers
         # and thus we need an easy reference to the last layer of the current graph
-        last_layer = self.imgs
+        last_layer = self.imgs # starting with the input image of course
 
         with tf.variable_scope('conv0', reuse=self.reuse):
 
@@ -61,6 +59,9 @@ class Resnet(object):
             last_layer = conv0
 
         for i in range(self.res_blocks):
+
+            # notice that for each residual block
+            # we actually have two layers in it
 
             name = 'conv1_%d' % i
 
@@ -76,6 +77,9 @@ class Resnet(object):
 
         for i in range(self.res_blocks):
 
+            # notice that for each residual block
+            # we actually have two layers in it
+
             name = 'conv2_%d' % i
 
             with tf.variable_scope(name, reuse=self.reuse):
@@ -86,6 +90,9 @@ class Resnet(object):
                 last_layer = conv2
 
         for i in range(self.res_blocks):
+
+            # notice that for each residual block
+            # we actually have two layers in it
 
             name = 'conv3_%d' % i
 
@@ -111,22 +118,24 @@ class Resnet(object):
             # print(global_pool.get_shape().as_list())
 
             input_dim = global_pool.get_shape().as_list()[-1]
+
             fc_w = tf.Variable(tf.truncated_normal([input_dim, self.num_labels],
                                                          dtype=tf.float32,
                                                          stddev=1e-1), name='fc_w')
+
             fc_b = tf.Variable(tf.constant(1.0, shape=[self.num_labels], dtype=tf.float32), name='fc_b')
 
             fc_h = tf.matmul(global_pool, fc_w) + fc_b
 
             self.layers_dic['fc'] = fc_h
-            last_layer = fc_h
+            last_layer = fc_h # this is the logits
 
         return last_layer
 
     def batch_normalization_layer(self, input_layer, dimension):
 
         '''
-        Helper function to do batch normalziation
+        Helper: batch normalziation
         :param input_layer: 4D tensor
         :param dimension: input_layer.get_shape().as_list()[-1]. The depth of the 4D tensor
         :return: the 4D tensor after being normalized
@@ -146,7 +155,7 @@ class Resnet(object):
 
     def conv_bn_relu_layer(self, input_layer, filter_shape, stride):
         '''
-        A helper function to conv, batch normalize and relu the input tensor sequentially
+        Helper: conv, batch normalize and relu the input tensor sequentially
         :param input_layer: 4D tensor
         :param filter_shape: list. [filter_height, filter_width, filter_depth, filter_number]
         :param stride: stride size for conv
@@ -162,8 +171,9 @@ class Resnet(object):
         return output
 
     def bn_relu_conv_layer(self, input_layer, filter_shape, stride):
+
         '''
-        A helper function to batch normalize, relu and conv the input layer sequentially
+        Helper: batch normalize, relu and conv the input layer sequentially
         :param input_layer: 4D tensor
         :param filter_shape: list. [filter_height, filter_width, filter_depth, filter_number]
         :param stride: stride size for conv
@@ -173,7 +183,6 @@ class Resnet(object):
         in_channel = input_layer.get_shape().as_list()[-1]
         bn_layer = self.batch_normalization_layer(input_layer, in_channel)
         relu_layer = tf.nn.relu(bn_layer)
-
         filter = tf.Variable(tf.truncated_normal(shape=filter_shape, dtype=tf.float32,
                                                  stddev=1e-1), name='weights')
         conv_layer = tf.nn.conv2d(relu_layer, filter, strides=[1, stride, stride, 1], padding='SAME')
@@ -182,7 +191,7 @@ class Resnet(object):
     def residual_block(self, input_layer, output_channel, first_block=False):
 
         '''
-        Defines a residual block in ResNet
+        A Residual Block
         :param input_layer: 4D tensor
         :param output_channel: int. return_tensor.get_shape().as_list()[-1] = output_channel
         :param first_block: if this is the first residual block of the whole network
@@ -191,7 +200,8 @@ class Resnet(object):
 
         input_channel = input_layer.get_shape().as_list()[-1]
 
-        # When it's time to "shrink" the image size, we use stride = 2
+        # when it's time to "shrink" the image size (and double the number of filters), we use stride = 2
+        # so no pooling layers
         if input_channel * 2 == output_channel:
             increase_dim = True
             stride = 2
